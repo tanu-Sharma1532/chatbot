@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Products - Card View | Zulu Club</title>
+    <title>Products Gallery - All Products | Zulu Club</title>
     <style>
         * {
             margin: 0;
@@ -13,46 +13,52 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #f5f7fa;
             min-height: 100vh;
             padding: 20px;
         }
 
         .container {
-            max-width: 1400px;
+            max-width: 1800px;
             margin: 0 auto;
         }
 
         .header {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
+            background: white;
             border-radius: 20px;
             padding: 25px 30px;
-            margin-bottom: 30px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            margin-bottom: 25px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
             display: flex;
             justify-content: space-between;
             align-items: center;
             flex-wrap: wrap;
             gap: 20px;
+            position: sticky;
+            top: 20px;
+            z-index: 100;
         }
 
         .header-left h1 {
-            color: #333;
+            color: #2c3e50;
             font-size: 28px;
             margin-bottom: 5px;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
         }
 
         .header-left h1 i {
-            color: #667eea;
+            color: #3498db;
+            background: #e3f2fd;
+            padding: 12px;
+            border-radius: 12px;
         }
 
         .subtitle {
-            color: #666;
-            font-size: 14px;
+            color: #7f8c8d;
+            font-size: 15px;
+            font-weight: 500;
         }
 
         .controls {
@@ -77,125 +83,216 @@
         }
 
         .btn-back {
-            background: #4CAF50;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
         }
 
         .btn-back:hover {
-            background: #388E3C;
             transform: translateY(-2px);
+            box-shadow: 0 7px 20px rgba(102, 126, 234, 0.4);
         }
 
         .btn-refresh {
-            background: #2196F3;
+            background: linear-gradient(135deg, #4CAF50 0%, #2E7D32 100%);
             color: white;
         }
 
         .btn-refresh:hover {
-            background: #1976D2;
             transform: translateY(-2px);
+            box-shadow: 0 7px 20px rgba(76, 175, 80, 0.4);
         }
 
         .search-box {
             position: relative;
-            min-width: 300px;
+            min-width: 320px;
+            flex-grow: 1;
+            max-width: 500px;
         }
 
         .search-box input {
             width: 100%;
-            padding: 12px 20px 12px 45px;
-            border: 2px solid #e0e0e0;
-            border-radius: 12px;
-            font-size: 14px;
+            padding: 14px 20px 14px 50px;
+            border: 2px solid #e1e8ed;
+            border-radius: 15px;
+            font-size: 15px;
             transition: all 0.3s ease;
             background: white;
+            color: #2c3e50;
         }
 
         .search-box input:focus {
             outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            border-color: #3498db;
+            box-shadow: 0 0 0 4px rgba(52, 152, 219, 0.15);
         }
 
         .search-box i {
             position: absolute;
-            left: 15px;
+            left: 18px;
             top: 50%;
             transform: translateY(-50%);
-            color: #999;
+            color: #95a5a6;
+            font-size: 18px;
         }
 
         .stats-bar {
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 15px;
-            padding: 20px;
+            background: white;
+            border-radius: 18px;
+            padding: 25px;
             margin-bottom: 25px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 15px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.06);
         }
 
         .stat-item {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 20px;
+            padding: 15px;
+            border-radius: 15px;
+            background: #f8fafc;
+            transition: transform 0.3s ease;
+        }
+
+        .stat-item:hover {
+            transform: translateY(-5px);
+            background: white;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
         }
 
         .stat-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 10px;
+            width: 60px;
+            height: 60px;
+            border-radius: 15px;
             display: flex;
             align-items: center;
             justify-content: center;
             color: white;
-            font-size: 18px;
+            font-size: 24px;
+            flex-shrink: 0;
         }
 
         .stat-content h3 {
-            font-size: 24px;
+            font-size: 28px;
             font-weight: 700;
-            color: #333;
+            color: #2c3e50;
             line-height: 1;
+            margin-bottom: 5px;
         }
 
         .stat-content p {
-            font-size: 13px;
-            color: #666;
-            margin-top: 2px;
+            font-size: 14px;
+            color: #7f8c8d;
+            font-weight: 500;
+        }
+
+        .filters-bar {
+            background: white;
+            border-radius: 18px;
+            padding: 25px;
+            margin-bottom: 30px;
+            display: flex;
+            gap: 25px;
+            flex-wrap: wrap;
+            align-items: center;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.06);
+        }
+
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .filter-group label {
+            font-size: 14px;
+            color: #2c3e50;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .filter-select {
+            padding: 12px 20px;
+            border: 2px solid #e1e8ed;
+            border-radius: 12px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+            min-width: 180px;
+            color: #2c3e50;
+            transition: all 0.3s ease;
+        }
+
+        .filter-select:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+        }
+
+        .filter-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            padding: 10px 15px;
+            border-radius: 12px;
+            transition: background 0.3s ease;
+        }
+
+        .filter-checkbox:hover {
+            background: #f8fafc;
+        }
+
+        .filter-checkbox input {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            accent-color: #3498db;
+        }
+
+        .filter-checkbox span {
+            font-size: 14px;
+            color: #2c3e50;
+            font-weight: 500;
         }
 
         .products-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            grid-template-columns: repeat(6, 1fr);
             gap: 25px;
             margin-bottom: 40px;
         }
 
-        @media (min-width: 1400px) {
+        /* Responsive adjustments */
+        @media (max-width: 1800px) {
             .products-grid {
-                grid-template-columns: repeat(6, 1fr);
+                grid-template-columns: repeat(5, 1fr);
             }
         }
 
-        @media (max-width: 1200px) {
+        @media (max-width: 1500px) {
             .products-grid {
                 grid-template-columns: repeat(4, 1fr);
             }
         }
 
-        @media (max-width: 900px) {
+        @media (max-width: 1200px) {
             .products-grid {
                 grid-template-columns: repeat(3, 1fr);
             }
         }
 
-        @media (max-width: 600px) {
+        @media (max-width: 900px) {
             .products-grid {
                 grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 600px) {
+            .products-grid {
+                grid-template-columns: 1fr;
             }
         }
 
@@ -203,23 +300,25 @@
             background: white;
             border-radius: 20px;
             overflow: hidden;
-            transition: all 0.4s ease;
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
             position: relative;
             height: 100%;
             display: flex;
             flex-direction: column;
+            border: 1px solid #f0f0f0;
         }
 
         .product-card:hover {
-            transform: translateY(-10px);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+            transform: translateY(-12px);
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+            border-color: #3498db;
         }
 
         .card-image {
             width: 100%;
-            height: 200px;
-            background: linear-gradient(45deg, #f5f7fa, #c3cfe2);
+            height: 240px;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4edf5 100%);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -230,63 +329,75 @@
         .card-image img {
             width: 100%;
             height: 100%;
-            object-fit: cover;
+            object-fit: contain;
+            padding: 20px;
             transition: transform 0.5s ease;
         }
 
         .product-card:hover .card-image img {
-            transform: scale(1.05);
+            transform: scale(1.1);
         }
 
         .no-image {
-            color: #888;
+            color: #95a5a6;
             font-size: 14px;
             text-align: center;
-            padding: 20px;
+            padding: 30px;
+        }
+
+        .no-image i {
+            font-size: 48px;
+            margin-bottom: 15px;
+            color: #bdc3c7;
         }
 
         .card-badge {
             position: absolute;
             top: 15px;
-            left: 15px;
-            background: rgba(0, 0, 0, 0.7);
-            color: white;
-            padding: 5px 12px;
+            right: 15px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            color: #2c3e50;
+            padding: 8px 16px;
             border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-            backdrop-filter: blur(5px);
+            font-size: 13px;
+            font-weight: 700;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
             z-index: 2;
+            border: 1px solid rgba(0, 0, 0, 0.05);
         }
 
         .card-content {
-            padding: 20px;
+            padding: 25px;
             flex-grow: 1;
             display: flex;
             flex-direction: column;
+            background: white;
         }
 
         .card-title {
             font-size: 16px;
             font-weight: 600;
-            color: #333;
-            margin-bottom: 8px;
+            color: #2c3e50;
+            margin-bottom: 12px;
             line-height: 1.4;
             display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
             overflow: hidden;
+            min-height: 44px;
         }
 
         .card-id {
             font-size: 14px;
-            color: #666;
+            color: #7f8c8d;
             margin-bottom: 15px;
-            font-family: 'Courier New', monospace;
-            background: #f8f9fa;
-            padding: 5px 10px;
-            border-radius: 6px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            background: #f8fafc;
+            padding: 8px 12px;
+            border-radius: 8px;
             display: inline-block;
+            border: 1px solid #edf2f7;
         }
 
         .card-meta {
@@ -294,54 +405,83 @@
             justify-content: space-between;
             align-items: center;
             margin-top: auto;
-            padding-top: 15px;
-            border-top: 1px solid #eee;
+            padding-top: 20px;
+            border-top: 1px solid #edf2f7;
         }
 
         .priority-badge {
-            padding: 4px 12px;
-            border-radius: 15px;
+            padding: 6px 14px;
+            border-radius: 12px;
             font-size: 12px;
-            font-weight: 600;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
 
-        .priority-1 { background: #e8f5e9; color: #2E7D32; }
-        .priority-2 { background: #e8f5e9; color: #2E7D32; }
-        .priority-3 { background: #e8f5e9; color: #2E7D32; }
-        .priority-4 { background: #e3f2fd; color: #1976D2; }
-        .priority-5 { background: #e3f2fd; color: #1976D2; }
-        .priority-6 { background: #e3f2fd; color: #1976D2; }
-        .priority-7 { background: #fff3e0; color: #F57C00; }
-        .priority-8 { background: #fff3e0; color: #F57C00; }
-        .priority-9 { background: #fff3e0; color: #F57C00; }
-        .priority-10 { background: #f5f5f5; color: #616161; }
-        .priority-outlier { background: #fce4ec; color: #C2185B; }
+        .priority-1, .priority-2, .priority-3 { 
+            background: #e8f5e9; 
+            color: #27ae60; 
+            border: 1px solid #a3e9a4;
+        }
+        .priority-4, .priority-5, .priority-6 { 
+            background: #e3f2fd; 
+            color: #2980b9; 
+            border: 1px solid #a6c8e3;
+        }
+        .priority-7, .priority-8, .priority-9 { 
+            background: #fff3e0; 
+            color: #f39c12; 
+            border: 1px solid #f8c471;
+        }
+        .priority-10 { 
+            background: #f5f5f5; 
+            color: #95a5a6; 
+            border: 1px solid #e0e0e0;
+        }
+        .priority-outlier { 
+            background: #fce4ec; 
+            color: #e91e63; 
+            border: 1px solid #f8bbd9;
+        }
 
         .status-badge {
-            width: 12px;
-            height: 12px;
+            width: 36px;
+            height: 36px;
             border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }
 
-        .status-active { background: #4CAF50; }
-        .status-inactive { background: #f44336; }
+        .status-active { 
+            background: linear-gradient(135deg, #4CAF50 0%, #2E7D32 100%);
+        }
+        .status-inactive { 
+            background: linear-gradient(135deg, #f44336 0%, #c62828 100%);
+        }
 
         .loading-container {
             text-align: center;
-            padding: 60px 20px;
+            padding: 80px 20px;
             background: white;
             border-radius: 20px;
             box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+            margin-bottom: 30px;
         }
 
         .loading-spinner {
-            width: 50px;
-            height: 50px;
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #667eea;
+            width: 60px;
+            height: 60px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
             border-radius: 50%;
             animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
+            margin: 0 auto 25px;
         }
 
         @keyframes spin {
@@ -349,81 +489,61 @@
             100% { transform: rotate(360deg); }
         }
 
+        .loading-container h3 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 20px;
+        }
+
+        .loading-container p {
+            color: #7f8c8d;
+            font-size: 15px;
+        }
+
         .empty-state {
             text-align: center;
-            padding: 80px 20px;
+            padding: 100px 20px;
             background: white;
             border-radius: 20px;
             box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+            margin-bottom: 30px;
         }
 
         .empty-state i {
-            font-size: 60px;
-            color: #ddd;
-            margin-bottom: 20px;
+            font-size: 80px;
+            color: #dfe6e9;
+            margin-bottom: 25px;
         }
 
         .empty-state h3 {
-            color: #666;
-            margin-bottom: 10px;
+            color: #636e72;
+            margin-bottom: 15px;
+            font-size: 22px;
         }
 
-        .pagination {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 10px;
-            margin-top: 40px;
-        }
-
-        .page-btn {
-            width: 40px;
-            height: 40px;
-            border: 2px solid #e0e0e0;
-            border-radius: 10px;
-            background: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-weight: 600;
-            color: #333;
-        }
-
-        .page-btn:hover:not(:disabled) {
-            border-color: #667eea;
-            color: #667eea;
-        }
-
-        .page-btn.active {
-            background: #667eea;
-            border-color: #667eea;
-            color: white;
-        }
-
-        .page-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .page-info {
-            margin: 0 15px;
-            color: #666;
-            font-size: 14px;
+        .empty-state p {
+            color: #b2bec3;
+            font-size: 16px;
+            max-width: 400px;
+            margin: 0 auto;
         }
 
         .message {
             position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 15px 25px;
-            border-radius: 12px;
+            top: 30px;
+            right: 30px;
+            padding: 18px 30px;
+            border-radius: 15px;
             color: white;
-            font-weight: 500;
+            font-weight: 600;
             z-index: 1000;
             animation: slideIn 0.3s ease;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
 
         @keyframes slideIn {
@@ -431,80 +551,67 @@
             to { transform: translateX(0); opacity: 1; }
         }
 
-        .message.success { background: #4CAF50; }
-        .message.error { background: #f44336; }
-        .message.info { background: #2196F3; }
+        .message.success { 
+            background: linear-gradient(135deg, #4CAF50 0%, #2E7D32 100%);
+        }
+        .message.error { 
+            background: linear-gradient(135deg, #f44336 0%, #c62828 100%);
+        }
+        .message.info { 
+            background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+        }
 
-        .filters-bar {
-            background: white;
+        .product-count {
+            position: sticky;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(52, 152, 219, 0.95);
+            color: white;
+            padding: 12px 25px;
             border-radius: 15px;
-            padding: 20px;
-            margin-bottom: 25px;
-            display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
-        }
-
-        .filter-group {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .filter-group label {
+            font-weight: 600;
             font-size: 14px;
-            color: #666;
-            font-weight: 500;
-        }
-
-        .filter-select {
-            padding: 8px 15px;
-            border: 2px solid #e0e0e0;
-            border-radius: 10px;
-            font-size: 14px;
-            background: white;
-            cursor: pointer;
-            min-width: 150px;
-        }
-
-        .filter-select:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
-        .filter-checkbox {
-            display: flex;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 10px 30px rgba(52, 152, 219, 0.3);
+            z-index: 99;
+            display: inline-flex;
             align-items: center;
             gap: 8px;
-            cursor: pointer;
         }
 
-        .filter-checkbox input {
-            width: 18px;
-            height: 18px;
-            cursor: pointer;
-        }
-
-        .product-grid {
-            display: contents;
+        .image-counter {
+            position: absolute;
+            bottom: 15px;
+            left: 15px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: 600;
+            z-index: 2;
+            backdrop-filter: blur(5px);
         }
 
         .card-footer {
             display: flex;
             gap: 10px;
-            margin-top: 15px;
+            margin-top: 20px;
         }
 
         .action-btn {
             flex: 1;
-            padding: 8px;
+            padding: 12px;
             border: none;
-            border-radius: 8px;
-            font-size: 12px;
+            border-radius: 10px;
+            font-size: 13px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
         }
 
         .action-btn.view {
@@ -514,6 +621,7 @@
 
         .action-btn.view:hover {
             background: #bbdefb;
+            transform: translateY(-2px);
         }
 
         .action-btn.edit {
@@ -523,6 +631,62 @@
 
         .action-btn.edit:hover {
             background: #e1bee7;
+            transform: translateY(-2px);
+        }
+
+        .scroll-top {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            cursor: pointer;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+            transition: all 0.3s ease;
+            z-index: 100;
+            border: none;
+        }
+
+        .scroll-top:hover {
+            transform: translateY(-5px) scale(1.1);
+        }
+
+        .sort-options {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .sort-btn {
+            padding: 10px 20px;
+            border: 2px solid #e1e8ed;
+            background: white;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #2c3e50;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .sort-btn.active {
+            background: #3498db;
+            color: white;
+            border-color: #3498db;
+        }
+
+        .sort-btn:hover {
+            border-color: #3498db;
         }
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -533,12 +697,20 @@
         <div class="header">
             <div class="header-left">
                 <h1><i class="fas fa-th-large"></i> Products Gallery</h1>
-                <p class="subtitle">Card view - 6 products per row</p>
+                <p class="subtitle">All products displayed in card format - 6 cards per row</p>
             </div>
             <div class="controls">
                 <div class="search-box">
                     <i class="fas fa-search"></i>
-                    <input type="text" id="searchInput" placeholder="Search products by name or ID...">
+                    <input type="text" id="searchInput" placeholder="Search products by name, ID, or SKU...">
+                </div>
+                <div class="sort-options">
+                    <button class="sort-btn" onclick="sortBy('priority')" id="sortPriority">
+                        <i class="fas fa-star"></i> Priority
+                    </button>
+                    <button class="sort-btn" onclick="sortBy('name')" id="sortName">
+                        <i class="fas fa-sort-alpha-down"></i> Name
+                    </button>
                 </div>
                 <a href="/home" class="btn btn-back">
                     <i class="fas fa-arrow-left"></i> Dashboard
@@ -552,7 +724,7 @@
         <!-- Stats Bar -->
         <div class="stats-bar">
             <div class="stat-item">
-                <div class="stat-icon" style="background: #4CAF50;">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
                     <i class="fas fa-box"></i>
                 </div>
                 <div class="stat-content">
@@ -561,7 +733,7 @@
                 </div>
             </div>
             <div class="stat-item">
-                <div class="stat-icon" style="background: #2196F3;">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #4CAF50 0%, #2E7D32 100%);">
                     <i class="fas fa-check-circle"></i>
                 </div>
                 <div class="stat-content">
@@ -570,7 +742,7 @@
                 </div>
             </div>
             <div class="stat-item">
-                <div class="stat-icon" style="background: #FF9800;">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%);">
                     <i class="fas fa-star"></i>
                 </div>
                 <div class="stat-content">
@@ -579,7 +751,7 @@
                 </div>
             </div>
             <div class="stat-item">
-                <div class="stat-icon" style="background: #9C27B0;">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #9C27B0 0%, #7B1FA2 100%);">
                     <i class="fas fa-image"></i>
                 </div>
                 <div class="stat-content">
@@ -592,7 +764,7 @@
         <!-- Filters -->
         <div class="filters-bar">
             <div class="filter-group">
-                <label>Status:</label>
+                <label><i class="fas fa-filter"></i> Status:</label>
                 <select class="filter-select" id="statusFilter" onchange="applyFilters()">
                     <option value="all">All Status</option>
                     <option value="active">Active Only</option>
@@ -600,61 +772,51 @@
                 </select>
             </div>
             <div class="filter-group">
-                <label>Priority:</label>
+                <label><i class="fas fa-signal"></i> Priority:</label>
                 <select class="filter-select" id="priorityFilter" onchange="applyFilters()">
                     <option value="all">All Priorities</option>
-                    <option value="1">Priority 1</option>
-                    <option value="2">Priority 2</option>
-                    <option value="3">Priority 3</option>
-                    <option value="4">Priority 4</option>
-                    <option value="5">Priority 5</option>
-                    <option value="6">Priority 6</option>
-                    <option value="7">Priority 7</option>
-                    <option value="8">Priority 8</option>
-                    <option value="9">Priority 9</option>
-                    <option value="10">Priority 10</option>
+                    <option value="high">High (1-3)</option>
+                    <option value="medium">Medium (4-6)</option>
+                    <option value="low">Low (7-9)</option>
+                    <option value="10">Lowest (10)</option>
                     <option value="outlier">Outliers</option>
                 </select>
             </div>
             <div class="filter-group">
                 <label class="filter-checkbox">
                     <input type="checkbox" id="showImagesOnly" onchange="applyFilters()">
-                    Show only products with images
+                    <span><i class="fas fa-image"></i> Show only products with images</span>
                 </label>
             </div>
         </div>
 
-        <!-- Products Grid -->
+        <!-- Loading State -->
         <div id="loadingContainer" class="loading-container">
             <div class="loading-spinner"></div>
-            <h3>Loading products...</h3>
-            <p>Fetching data from database</p>
+            <h3>Loading all products...</h3>
+            <p>Fetching data from database. This may take a moment.</p>
         </div>
 
+        <!-- Products Grid -->
         <div id="productsContainer" class="products-grid" style="display: none;"></div>
 
+        <!-- Empty State -->
         <div id="emptyState" class="empty-state" style="display: none;">
             <i class="fas fa-box-open"></i>
             <h3>No products found</h3>
             <p>Try adjusting your filters or search term</p>
         </div>
 
-        <!-- Pagination -->
-        <div class="pagination" id="pagination" style="display: none;">
-            <button class="page-btn" onclick="changePage(1)" id="firstPage">
-                <i class="fas fa-angle-double-left"></i>
-            </button>
-            <button class="page-btn" onclick="prevPage()" id="prevPage">
-                <i class="fas fa-angle-left"></i>
-            </button>
-            <span class="page-info" id="pageInfo">Page 1 of 1</span>
-            <button class="page-btn" onclick="nextPage()" id="nextPage">
-                <i class="fas fa-angle-right"></i>
-            </button>
-            <button class="page-btn" onclick="changePage(totalPages)" id="lastPage">
-                <i class="fas fa-angle-double-right"></i>
-            </button>
+        <!-- Product Count -->
+        <div id="productCount" class="product-count" style="display: none;">
+            <i class="fas fa-th-large"></i>
+            <span id="showingCount">0</span> products
         </div>
+
+        <!-- Scroll to Top Button -->
+        <button class="scroll-top" onclick="scrollToTop()" id="scrollTopBtn" style="display: none;">
+            <i class="fas fa-chevron-up"></i>
+        </button>
     </div>
 
     <!-- Message Container -->
@@ -664,46 +826,151 @@
         // Global variables
         let allProducts = [];
         let filteredProducts = [];
-        let currentPage = 1;
-        const productsPerPage = 6;
-        let totalPages = 1;
+        let currentSort = 'priority';
+        let currentSortOrder = 'asc';
         let searchTimeout = null;
+
+        // Image base URLs - handle both relative and absolute paths
+        const imageBaseUrls = [
+            'https://zulushop.in/',
+            '/', // Root relative
+            '',  // Some might already be absolute
+        ];
+
+        // Function to normalize image URLs
+        function normalizeImageUrl(url) {
+            if (!url || url.trim() === '') {
+                return null;
+            }
+
+            // Remove any query parameters or fragments
+            url = url.split('?')[0].split('#')[0];
+
+            // If it's already an absolute URL with http/https
+            if (url.startsWith('http://') || url.startsWith('https://')) {
+                return url;
+            }
+
+            // Handle different relative path formats
+            if (url.startsWith('//')) {
+                return 'https:' + url;
+            }
+
+            if (url.startsWith('/')) {
+                // Root relative path
+                return 'https://zulushop.in' + url;
+            }
+
+            // Handle uploads paths
+            if (url.startsWith('uploads/') || url.startsWith('temp_images/')) {
+                return 'https://zulushop.in/' + url;
+            }
+
+            // Try with base URLs
+            for (const baseUrl of imageBaseUrls) {
+                try {
+                    const fullUrl = new URL(url, baseUrl);
+                    return fullUrl.href;
+                } catch (e) {
+                    // Invalid URL, try next base
+                }
+            }
+
+            // Last resort: prepend zulushop.in
+            return 'https://zulushop.in/' + url;
+        }
 
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
             loadProducts();
             
             // Setup search input
-            document.getElementById('searchInput').addEventListener('input', function() {
+            const searchInput = document.getElementById('searchInput');
+            searchInput.addEventListener('input', function() {
                 clearTimeout(searchTimeout);
                 searchTimeout = setTimeout(() => {
                     applyFilters();
                 }, 300);
+            });
+
+            // Show/hide scroll to top button
+            window.addEventListener('scroll', function() {
+                const scrollTopBtn = document.getElementById('scrollTopBtn');
+                if (window.scrollY > 300) {
+                    scrollTopBtn.style.display = 'flex';
+                } else {
+                    scrollTopBtn.style.display = 'none';
+                }
             });
         });
 
         // Load products from API
         async function loadProducts() {
             showLoading(true);
+            document.getElementById('productsContainer').style.display = 'none';
+            document.getElementById('productCount').style.display = 'none';
             
             try {
                 const response = await fetch('/api/products');
                 const data = await response.json();
                 
                 if (data && data.success && Array.isArray(data.data)) {
-                    allProducts = data.data.map(product => ({
-                        ...product,
-                        // Ensure proper formatting
-                        id: product.id || 'N/A',
-                        name: product.name || product.title || 'Unnamed Product',
-                        image: product.image || product.IMAGE || null,
-                        priority: parseInt(product.priority) || 1,
-                        status: parseInt(product.status) || 0,
-                        // Check if it has an image
-                        hasImage: !!(product.image || product.IMAGE || product.other_images)
-                    }));
+                    allProducts = data.data.map((product, index) => {
+                        // Get the main image URL
+                        let mainImage = null;
+                        let imageCount = 0;
+                        
+                        // Check for images in different fields
+                        const possibleImageFields = ['image', 'IMAGE', 'other_images', 'image1', 'image2', 'image3', 'image4'];
+                        
+                        for (const field of possibleImageFields) {
+                            if (product[field]) {
+                                if (field === 'other_images') {
+                                    try {
+                                        const otherImages = JSON.parse(product[field]);
+                                        if (Array.isArray(otherImages) && otherImages.length > 0) {
+                                            mainImage = normalizeImageUrl(otherImages[0]);
+                                            imageCount = otherImages.length;
+                                        }
+                                    } catch (e) {
+                                        // If it's not JSON, treat as comma-separated string
+                                        const images = String(product[field]).split(',').filter(img => img.trim());
+                                        if (images.length > 0) {
+                                            mainImage = normalizeImageUrl(images[0].trim());
+                                            imageCount = images.length;
+                                        }
+                                    }
+                                } else {
+                                    mainImage = normalizeImageUrl(product[field]);
+                                    if (mainImage) imageCount = 1;
+                                }
+                                if (mainImage) break;
+                            }
+                        }
+                        
+                        // Parse priority
+                        let priority = parseInt(product.priority) || 1;
+                        const isOutlier = priority < 1 || priority > 10;
+                        
+                        // Normalize priority for display
+                        if (priority < 1) priority = 1;
+                        if (priority > 10) priority = 10;
+                        
+                        return {
+                            ...product,
+                            id: product.id || index + 1,
+                            name: product.name || product.title || product.product_name || 'Unnamed Product',
+                            image: mainImage,
+                            imageCount: imageCount,
+                            priority: priority,
+                            isOutlier: isOutlier,
+                            status: parseInt(product.status) || 0,
+                            sku: product.sku || product.SKU || '',
+                            hasImage: !!mainImage
+                        };
+                    });
                     
-                    showMessage('Products loaded successfully!', 'success');
+                    showMessage(`Loaded ${allProducts.length} products successfully!`, 'success');
                     applyFilters();
                     updateStats();
                 } else {
@@ -715,13 +982,13 @@
                 document.getElementById('productsContainer').innerHTML = '';
                 document.getElementById('productsContainer').style.display = 'none';
                 document.getElementById('emptyState').style.display = 'block';
-                document.getElementById('pagination').style.display = 'none';
+                document.getElementById('productCount').style.display = 'none';
             } finally {
                 showLoading(false);
             }
         }
 
-        // Apply filters
+        // Apply filters and sorting
         function applyFilters() {
             const searchTerm = document.getElementById('searchInput').value.toLowerCase();
             const statusFilter = document.getElementById('statusFilter').value;
@@ -734,8 +1001,9 @@
                     const searchable = [
                         product.name,
                         product.id.toString(),
-                        product.sku || '',
-                        product.description || ''
+                        product.sku,
+                        product.description || '',
+                        product.category_id || ''
                     ].join(' ').toLowerCase();
                     
                     if (!searchable.includes(searchTerm)) {
@@ -752,86 +1020,128 @@
                 
                 // Priority filter
                 if (priorityFilter !== 'all') {
-                    if (priorityFilter === 'outlier') {
-                        const priority = parseInt(product.priority) || 1;
-                        if (priority >= 1 && priority <= 10) return false;
-                    } else {
-                        const selectedPriority = parseInt(priorityFilter);
-                        if (selectedPriority !== product.priority) return false;
+                    const priority = product.priority;
+                    
+                    switch(priorityFilter) {
+                        case 'high':
+                            if (priority > 3 || priority < 1) return false;
+                            break;
+                        case 'medium':
+                            if (priority < 4 || priority > 6) return false;
+                            break;
+                        case 'low':
+                            if (priority < 7 || priority > 9) return false;
+                            break;
+                        case '10':
+                            if (priority !== 10) return false;
+                            break;
+                        case 'outlier':
+                            if (!product.isOutlier) return false;
+                            break;
                     }
                 }
                 
                 return true;
             });
             
-            currentPage = 1;
+            // Apply current sort
+            sortProducts(currentSort, currentSortOrder);
             displayProducts();
-            updatePagination();
         }
 
-        // Display products in grid
+        // Sort products
+        function sortBy(field) {
+            if (currentSort === field) {
+                // Toggle order if clicking the same field
+                currentSortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSort = field;
+                currentSortOrder = 'asc';
+            }
+            
+            // Update sort button states
+            document.getElementById('sortPriority').classList.remove('active');
+            document.getElementById('sortName').classList.remove('active');
+            document.getElementById('sort' + field.charAt(0).toUpperCase() + field.slice(1)).classList.add('active');
+            
+            sortProducts(field, currentSortOrder);
+            displayProducts();
+        }
+
+        function sortProducts(field, order) {
+            filteredProducts.sort((a, b) => {
+                let aVal, bVal;
+                
+                switch(field) {
+                    case 'priority':
+                        aVal = a.isOutlier ? 999 : a.priority;
+                        bVal = b.isOutlier ? 999 : b.priority;
+                        return order === 'asc' ? aVal - bVal : bVal - aVal;
+                        
+                    case 'name':
+                        aVal = a.name.toLowerCase();
+                        bVal = b.name.toLowerCase();
+                        return order === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+                        
+                    default:
+                        return 0;
+                }
+            });
+        }
+
+        // Display all filtered products
         function displayProducts() {
             const container = document.getElementById('productsContainer');
             const emptyState = document.getElementById('emptyState');
-            const pagination = document.getElementById('pagination');
+            const productCount = document.getElementById('productCount');
             
             if (filteredProducts.length === 0) {
                 container.innerHTML = '';
                 container.style.display = 'none';
                 emptyState.style.display = 'block';
-                pagination.style.display = 'none';
+                productCount.style.display = 'none';
                 return;
             }
             
             emptyState.style.display = 'none';
             container.style.display = 'grid';
-            pagination.style.display = 'flex';
+            productCount.style.display = 'flex';
             
-            // Calculate pagination
-            const startIndex = (currentPage - 1) * productsPerPage;
-            const endIndex = startIndex + productsPerPage;
-            const pageProducts = filteredProducts.slice(startIndex, endIndex);
-            
-            // Generate cards HTML
+            // Generate cards HTML for ALL products
             let html = '';
-            pageProducts.forEach(product => {
-                const priority = parseInt(product.priority) || 1;
-                const isOutlier = priority < 1 || priority > 10;
+            filteredProducts.forEach(product => {
+                const priority = product.priority;
+                const isOutlier = product.isOutlier;
                 const priorityClass = isOutlier ? 'priority-outlier' : `priority-${priority}`;
                 const statusClass = product.status === 1 ? 'status-active' : 'status-inactive';
                 const statusText = product.status === 1 ? 'Active' : 'Inactive';
                 
-                // Get image URL
-                let imageUrl = product.image || product.IMAGE || '';
-                if (product.other_images) {
-                    try {
-                        const otherImages = JSON.parse(product.other_images);
-                        if (Array.isArray(otherImages) && otherImages.length > 0) {
-                            imageUrl = otherImages[0];
-                        }
-                    } catch (e) {
-                        // Not valid JSON, use as is
-                        if (product.other_images.includes('http')) {
-                            imageUrl = product.other_images.split(',')[0];
-                        }
-                    }
-                }
-                
                 // Truncate name if too long
-                const productName = product.name.length > 50 
-                    ? product.name.substring(0, 50) + '...' 
+                const productName = product.name.length > 60 
+                    ? product.name.substring(0, 60) + '...' 
                     : product.name;
+                
+                // Generate image HTML
+                let imageHtml = '';
+                if (product.image) {
+                    imageHtml = `
+                        <img src="${product.image}" alt="${product.name}" 
+                             onerror="this.onerror=null; this.src='https://via.placeholder.com/300x200?text=Image+Not+Found';">
+                        ${product.imageCount > 1 ? `<div class="image-counter">+${product.imageCount - 1}</div>` : ''}
+                    `;
+                } else {
+                    imageHtml = `
+                        <div class="no-image">
+                            <i class="fas fa-image"></i>
+                            <p>No image available</p>
+                        </div>
+                    `;
+                }
                 
                 html += `
                 <div class="product-card">
                     <div class="card-image">
-                        ${imageUrl ? 
-                            `<img src="${imageUrl}" alt="${product.name}" onerror="this.src='https://via.placeholder.com/300x200?text=No+Image'">` :
-                            `<div class="no-image">
-                                <i class="fas fa-image fa-3x"></i>
-                                <p>No image available</p>
-                            </div>`
-                        }
+                        ${imageHtml}
                         <div class="card-badge">
                             ${isOutlier ? 'Outlier' : `P${priority}`}
                         </div>
@@ -840,24 +1150,30 @@
                         <h3 class="card-title">${productName}</h3>
                         <div class="card-id">ID: ${product.id}</div>
                         
-                        ${product.sku ? `<p style="font-size: 12px; color: #888; margin-bottom: 10px;">SKU: ${product.sku}</p>` : ''}
+                        ${product.sku ? `<div style="font-size: 13px; color: #666; margin-bottom: 8px; padding: 5px 10px; background: #f8f9fa; border-radius: 6px; border: 1px solid #edf2f7;">
+                            <i class="fas fa-barcode"></i> ${product.sku}
+                        </div>` : ''}
                         
-                        ${product.category_id ? `<p style="font-size: 12px; color: #666; margin-bottom: 10px;">Category: ${product.category_id}</p>` : ''}
+                        ${product.category_id ? `<div style="font-size: 12px; color: #7f8c8d; margin-bottom: 12px;">
+                            <i class="fas fa-tag"></i> Category: ${product.category_id}
+                        </div>` : ''}
                         
                         <div class="card-meta">
                             <div>
                                 <span class="priority-badge ${priorityClass}">
-                                    <i class="fas fa-star"></i> Priority ${isOutlier ? 'Outlier' : priority}
+                                    <i class="fas fa-star"></i> ${isOutlier ? 'Outlier' : `P${priority}`}
                                 </span>
                             </div>
-                            <div class="status-badge ${statusClass}" title="${statusText}"></div>
+                            <div class="status-badge ${statusClass}" title="${statusText}">
+                                <i class="fas fa-power-off"></i>
+                            </div>
                         </div>
                         
                         <div class="card-footer">
-                            <button class="action-btn view" onclick="viewProduct(${product.id})">
+                            <button class="action-btn view" onclick="viewProduct(${product.id})" title="View Details">
                                 <i class="fas fa-eye"></i> View
                             </button>
-                            <button class="action-btn edit" onclick="editProduct(${product.id})">
+                            <button class="action-btn edit" onclick="editProduct(${product.id})" title="Edit Product">
                                 <i class="fas fa-edit"></i> Edit
                             </button>
                         </div>
@@ -867,7 +1183,7 @@
             });
             
             container.innerHTML = html;
-            updatePageInfo();
+            document.getElementById('showingCount').textContent = filteredProducts.length.toLocaleString();
         }
 
         // Update statistics
@@ -875,8 +1191,8 @@
             const totalProducts = allProducts.length;
             const activeProducts = allProducts.filter(p => p.status === 1).length;
             const highPriority = allProducts.filter(p => {
-                const priority = parseInt(p.priority) || 1;
-                return !(priority < 1 || priority > 10) && priority <= 3;
+                const priority = p.priority;
+                return !p.isOutlier && priority >= 1 && priority <= 3;
             }).length;
             const withImages = allProducts.filter(p => p.hasImage).length;
             
@@ -884,48 +1200,6 @@
             document.getElementById('activeProducts').textContent = activeProducts.toLocaleString();
             document.getElementById('highPriority').textContent = highPriority.toLocaleString();
             document.getElementById('withImages').textContent = withImages.toLocaleString();
-        }
-
-        // Pagination functions
-        function updatePagination() {
-            totalPages = Math.ceil(filteredProducts.length / productsPerPage);
-            
-            document.getElementById('firstPage').disabled = currentPage === 1;
-            document.getElementById('prevPage').disabled = currentPage === 1;
-            document.getElementById('nextPage').disabled = currentPage === totalPages;
-            document.getElementById('lastPage').disabled = currentPage === totalPages;
-            
-            updatePageInfo();
-        }
-
-        function updatePageInfo() {
-            const start = (currentPage - 1) * productsPerPage + 1;
-            const end = Math.min(currentPage * productsPerPage, filteredProducts.length);
-            const total = filteredProducts.length;
-            
-            document.getElementById('pageInfo').textContent = 
-                `Page ${currentPage} of ${totalPages} (${start}-${end} of ${total})`;
-        }
-
-        function changePage(page) {
-            if (page >= 1 && page <= totalPages) {
-                currentPage = page;
-                displayProducts();
-                updatePagination();
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            }
-        }
-
-        function prevPage() {
-            if (currentPage > 1) {
-                changePage(currentPage - 1);
-            }
-        }
-
-        function nextPage() {
-            if (currentPage < totalPages) {
-                changePage(currentPage + 1);
-            }
         }
 
         // View product details
@@ -945,9 +1219,6 @@
         // Show/hide loading
         function showLoading(show) {
             document.getElementById('loadingContainer').style.display = show ? 'block' : 'none';
-            if (!show) {
-                document.getElementById('productsContainer').style.display = 'grid';
-            }
         }
 
         // Show message
@@ -955,25 +1226,65 @@
             const container = document.getElementById('messageContainer');
             const message = document.createElement('div');
             message.className = `message ${type}`;
-            message.textContent = text;
+            
+            // Add icon based on type
+            let icon = 'fas fa-info-circle';
+            if (type === 'success') icon = 'fas fa-check-circle';
+            if (type === 'error') icon = 'fas fa-exclamation-circle';
+            
+            message.innerHTML = `<i class="${icon}"></i> ${text}`;
             container.appendChild(message);
             
             setTimeout(() => {
-                message.remove();
+                message.style.animation = 'slideIn 0.3s ease reverse';
+                setTimeout(() => message.remove(), 300);
             }, 3000);
+        }
+
+        // Scroll to top
+        function scrollToTop() {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
         }
 
         // Add keyboard shortcuts
         document.addEventListener('keydown', function(e) {
-            if (e.key === 'ArrowLeft' && currentPage > 1) {
-                prevPage();
-            } else if (e.key === 'ArrowRight' && currentPage < totalPages) {
-                nextPage();
-            } else if (e.key === 'Escape') {
+            // Ctrl/Cmd + F to focus search
+            if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+                e.preventDefault();
+                document.getElementById('searchInput').focus();
+            }
+            // Escape to clear search
+            else if (e.key === 'Escape') {
                 document.getElementById('searchInput').value = '';
                 applyFilters();
             }
         });
+
+        // Debounce function for performance
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        // Optimized scroll handler
+        window.addEventListener('scroll', debounce(function() {
+            const scrollTopBtn = document.getElementById('scrollTopBtn');
+            if (window.scrollY > 300) {
+                scrollTopBtn.style.display = 'flex';
+            } else {
+                scrollTopBtn.style.display = 'none';
+            }
+        }, 100));
     </script>
 </body>
 </html>

@@ -1934,16 +1934,6 @@ function buildConciseResponse(userMessage, galleryMatches = [], sellersObj = {},
   // Create response text
   let textResponse = `Based on your search for "${userMessage}":\n\n`;
   
-  if (products.length > 0) {
-    textResponse += `✅ Found ${products.length} products\n`;
-  }
-  if (galleries.length > 0) {
-    textResponse += `🎨 Found ${galleries.length} galleries\n`;
-  }
-  if (sellers.length > 0) {
-    textResponse += `👥 Found ${sellers.length} sellers\n`;
-  }
-  
   if (products.length === 0 && galleries.length === 0 && sellers.length === 0) {
     textResponse += `No results found for "${userMessage}". Try searching with different keywords.`;
   }

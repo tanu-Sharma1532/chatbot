@@ -35,43 +35,45 @@
             background: linear-gradient(135deg, #171f22 0%, #1c262a 100%);
         }
 
-        /* Header */
+        /* HEADER - REDUCED SIZE */
         .header {
             background: #1a2733;
             border-bottom: 1px solid #2d3746;
-            padding: 14px 20px;
+            padding: 10px 16px;
             display: flex;
             align-items: center;
             justify-content: space-between;
             flex-shrink: 0;
-            height: 70px;
+            height: 56px;
+            min-height: 56px;
         }
 
         .header-left {
             display: flex;
             align-items: center;
-            gap: 20px;
+            gap: 16px;
         }
 
         .header-right {
             display: flex;
             align-items: center;
-            gap: 20px;
+            gap: 12px;
         }
 
         .header-btn {
             background: transparent;
             border: none;
             color: #a0b3c5;
-            font-size: 16px;
+            font-size: 14px;
             cursor: pointer;
-            padding: 8px 16px;
-            border-radius: 8px;
+            padding: 6px 12px;
+            border-radius: 6px;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
             transition: all 0.3s;
             font-family: 'Poppins', sans-serif;
+            font-weight: 500;
         }
 
         .header-btn:hover {
@@ -97,36 +99,44 @@
             background: #ff5252;
         }
 
+        /* PROFILE SECTION - UPDATED WITH LOGO TEXT */
         .profile {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 10px;
             cursor: pointer;
         }
 
         .profile-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: transparent;
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             display: flex;
             align-items: center;
             justify-content: center;
             overflow: hidden;
-            border: 1px solid #2d3746;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 4px;
         }
 
         .profile-avatar img {
             width: 100%;
             height: 100%;
             object-fit: contain;
-            padding: 6px;
+            filter: brightness(0) invert(1);
         }
 
         .profile-name {
             font-size: 14px;
-            color: #a0b3c5;
+            color: #fff;
             font-family: 'Poppins', sans-serif;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
 
         /* Chat Container */
@@ -136,19 +146,23 @@
             flex-direction: column;
             overflow: hidden;
             position: relative;
-            max-height: calc(100vh - 70px);
+            max-height: calc(100vh - 56px);
         }
 
         /* Status Banner */
         .status-banner {
             background: #1a2733;
-            padding: 12px 20px;
+            padding: 10px 16px;
             text-align: center;
             color: #a0b3c5;
-            font-size: 14px;
+            font-size: 13px;
             flex-shrink: 0;
             border-bottom: 1px solid #2d3746;
             font-family: 'Poppins', sans-serif;
+            min-height: 40px;
+            display: none;
+            align-items: center;
+            justify-content: center;
         }
 
         .status-banner.verified {
@@ -160,10 +174,10 @@
         .chat-messages {
             flex: 1;
             overflow-y: auto;
-            padding: 20px;
+            padding: 16px;
             display: flex;
             flex-direction: column;
-            gap: 16px;
+            gap: 14px;
             background: rgba(23, 31, 34, 0.95);
         }
 
@@ -209,9 +223,9 @@
         }
 
         .message-content {
-            padding: 14px 18px;
-            border-radius: 18px;
-            font-size: 14px;
+            padding: 12px 16px;
+            border-radius: 16px;
+            font-size: 13px;
             line-height: 1.5;
             position: relative;
             word-wrap: break-word;
@@ -233,9 +247,9 @@
         }
 
         .message-time {
-            font-size: 11px;
+            font-size: 10px;
             opacity: 0.7;
-            margin-top: 4px;
+            margin-top: 3px;
             display: block;
             text-align: right;
             font-family: 'Poppins', sans-serif;
@@ -246,9 +260,9 @@
             display: inline-flex;
             align-items: center;
             gap: 4px;
-            padding: 14px 18px;
+            padding: 12px 16px;
             background: #1c262a;
-            border-radius: 18px;
+            border-radius: 16px;
             border-bottom-left-radius: 4px;
         }
 
@@ -272,8 +286,8 @@
         .welcome-message {
             background: #1c262a;
             border-radius: 12px;
-            padding: 24px;
-            margin-bottom: 16px;
+            padding: 20px;
+            margin-bottom: 14px;
             border-left: 4px solid #0084ff;
             animation: fadeIn 0.5s ease;
         }
@@ -286,18 +300,18 @@
         }
 
         .welcome-icon {
-            width: 48px;
-            height: 48px;
+            width: 40px;
+            height: 40px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 20px;
+            font-size: 18px;
         }
 
         .welcome-text h3 {
-            font-size: 18px;
+            font-size: 16px;
             font-weight: 600;
             margin-bottom: 4px;
             font-family: 'Poppins', sans-serif;
@@ -305,7 +319,7 @@
 
         .welcome-text p {
             color: #a0b3c5;
-            font-size: 14px;
+            font-size: 13px;
             font-family: 'Poppins', sans-serif;
         }
 
@@ -342,11 +356,11 @@
 
         /* Chat Input */
         .chat-input {
-            padding: 16px 20px;
+            padding: 12px 16px;
             background: #1a2733;
             border-top: 1px solid #2d3746;
             display: flex;
-            gap: 12px;
+            gap: 10px;
             align-items: flex-end;
             flex-shrink: 0;
         }
@@ -355,8 +369,8 @@
             flex: 1;
             display: flex;
             background: #2d3746;
-            border-radius: 24px;
-            padding: 8px 16px;
+            border-radius: 20px;
+            padding: 6px 14px;
             align-items: center;
         }
 
@@ -365,10 +379,10 @@
             background: transparent;
             border: none;
             color: white;
-            font-size: 15px;
+            font-size: 14px;
             resize: none;
-            max-height: 120px;
-            padding: 8px 0;
+            max-height: 100px;
+            padding: 6px 0;
             font-family: 'Poppins', sans-serif;
             line-height: 1.4;
         }
@@ -382,8 +396,8 @@
         }
 
         .send-btn {
-            width: 44px;
-            height: 44px;
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
             background: #0084ff;
             border: none;
@@ -394,6 +408,7 @@
             justify-content: center;
             transition: background 0.3s;
             flex-shrink: 0;
+            font-size: 14px;
         }
 
         .send-btn:hover {
@@ -1326,8 +1341,8 @@
         /* Responsive Design */
         @media (max-width: 768px) {
             .header {
-                padding: 12px 16px;
-                height: 60px;
+                padding: 8px 12px;
+                height: 52px;
             }
 
             .header-btn span {
@@ -1335,16 +1350,16 @@
             }
 
             .header-btn {
-                padding: 8px;
+                padding: 6px;
             }
 
             .profile-name {
-                display: none;
+                font-size: 13px;
             }
 
             .welcome-message {
-                padding: 20px;
-                margin: 0 16px 16px;
+                padding: 16px;
+                margin: 0 12px 12px;
             }
 
             .features-grid {
@@ -1352,7 +1367,7 @@
             }
 
             .chat-messages {
-                padding: 16px;
+                padding: 12px;
             }
 
             .message {
@@ -1395,6 +1410,15 @@
 
         /* For very small screens */
         @media (max-width: 480px) {
+            .header {
+                padding: 6px 10px;
+                height: 48px;
+            }
+
+            .profile-name {
+                font-size: 12px;
+            }
+
             .gallery-grid {
                 grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
                 gap: 8px;
@@ -1420,8 +1444,8 @@
 
         /* Auto-resize textarea */
         .message-input {
-            min-height: 24px;
-            max-height: 120px;
+            min-height: 20px;
+            max-height: 100px;
         }
 
         /* Link styles in slider */
@@ -1460,10 +1484,7 @@
                     <span>Logout</span>
                 </button>
                 <div class="profile" id="profileBtn">
-                    <div class="profile-avatar" id="profileAvatar">
-                        <img src="https://app.zulu.club/neweb/ZULU_WHITE.PNG" alt="Zulu Club Logo">
-                    </div>
-                    <div class="profile-name" id="profileName">Guest User</div>
+                    <div class="profile-name" id="profileName">ZULU ASSISTANT</div>
                 </div>
             </div>
             <div class="header-right">
@@ -1733,26 +1754,30 @@
         }
 
         // Update UI based on authentication status
-        function updateUI() {
-            if (isAuthenticated) {
-                statusBanner.className = 'status-banner verified';
-                statusMessage.innerHTML = '✅ Verified • Full Access to All Features';
-                profileName.innerHTML = 'Verified User <span class="verified-badge">Verified</span>';
-                verifyBtn.style.display = 'none';
-                logoutBtn.classList.remove('hidden');
-            } else {
-                statusBanner.className = 'status-banner';
-                statusMessage.innerHTML = ''; // Empty string as requested
-                profileName.textContent = 'Guest User';
-                verifyBtn.style.display = 'flex';
-                logoutBtn.classList.add('hidden');
-            }
-            
-            // Always enable chat input (unlimited messages)
-            messageInput.disabled = false;
-            messageInput.placeholder = 'Type your message...';
-            sendBtn.disabled = !messageInput.value.trim();
-        }
+function updateUI() {
+    if (isAuthenticated) {
+        // ✅ SHOW banner only when verified
+        statusBanner.style.display = 'flex';
+        statusBanner.className = 'status-banner verified';
+        statusMessage.innerHTML = '✅ Verified • Full Access to All Features';
+
+        profileName.innerHTML = 'ZULU ASSISTANT <span class="verified-badge">Verified</span>';
+        verifyBtn.style.display = 'none';
+        logoutBtn.classList.remove('hidden');
+    } else {
+        // ❌ HIDE banner completely
+        statusBanner.style.display = 'none';
+        statusMessage.innerHTML = '';
+
+        profileName.textContent = 'ZULU ASSISTANT';
+        verifyBtn.style.display = 'flex';
+        logoutBtn.classList.add('hidden');
+    }
+
+    messageInput.disabled = false;
+    messageInput.placeholder = 'Type your message...';
+    sendBtn.disabled = !messageInput.value.trim();
+}
 
         // Show verification modal
         function showVerificationModal() {
@@ -2654,7 +2679,7 @@ Try asking: "Tell me about Zulu Club" or "Show me home decor items"`;
             
             // Add Products section if available
             if (structuredData.products && structuredData.products.length > 0) {
-                htmlContent += `<div class="section-title">🛍️ Products (${structuredData.products.length})</div>`;
+                htmlContent += `<div class="section-title">Products (${structuredData.products.length})</div>`;
                 htmlContent += `<div class="products-slider">`;
                 htmlContent += `<div class="slider-track hide-scrollbar" id="productsSliderTrack">`;
                 
@@ -2708,7 +2733,7 @@ Try asking: "Tell me about Zulu Club" or "Show me home decor items"`;
             
             // Add Galleries section if available
             if (structuredData.galleries && structuredData.galleries.length > 0) {
-                htmlContent += `<div class="section-title">🎨 Galleries</div>`;
+                htmlContent += `<div class="section-title">Galleries</div>`;
                 htmlContent += `<div class="galleries-slider">`;
                 htmlContent += `<div class="slider-track hide-scrollbar" id="galleriesSliderTrack">`;
                 
@@ -2746,7 +2771,7 @@ Try asking: "Tell me about Zulu Club" or "Show me home decor items"`;
             
             // Add Sellers section if available
             if (structuredData.sellers && structuredData.sellers.length > 0) {
-                htmlContent += `<div class="section-title">👥 Sellers</div>`;
+                htmlContent += `<div class="section-title">Sellers</div>`;
                 htmlContent += `<div class="sellers-list">`;
                 
                 structuredData.sellers.forEach((seller, index) => {
@@ -3199,7 +3224,7 @@ Try asking: "Tell me about Zulu Club" or "Show me home decor items"`;
 
         // Initialize
         window.addEventListener('load', () => {
-            console.log('Page loaded, initializing...');
+            console.log('Page loaded, initializing ZULU ASSISTANT...');
             checkAuthentication();
         });
     </script>
