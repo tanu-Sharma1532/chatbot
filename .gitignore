@@ -6,8 +6,7 @@ node_modules/
 .env.*
 
 # Ignore configs
-vercel.json
-package.json
+
 package-lock.json
 
 README.md
