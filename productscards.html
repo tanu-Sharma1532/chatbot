@@ -4,93 +4,228 @@
     <title>Products - Card View</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 30px;
-            background: #f5f5f5;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
         }
         h1 {
-            color: #333;
-            border-bottom: 3px solid #4CAF50;
-            padding-bottom: 10px;
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 15px;
+            margin-bottom: 25px;
+            font-size: 28px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        h1:before {
+            content: "📦";
+            font-size: 32px;
         }
         .controls {
             display: flex;
-            gap: 10px;
-            margin: 20px 0;
+            gap: 15px;
+            margin: 25px 0;
             flex-wrap: wrap;
             align-items: center;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
         }
         button {
-            padding: 10px 20px;
+            padding: 12px 24px;
             font-size: 14px;
             border: none;
-            border-radius: 5px;
+            border-radius: 8px;
             cursor: pointer;
-            font-weight: bold;
-            transition: all 0.3s;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
         button:hover {
-            opacity: 0.9;
             transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        button:active {
+            transform: translateY(0);
         }
         .back-btn {
-            background: #6c757d;
+            background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
             color: white;
         }
+        .back-btn:hover {
+            background: linear-gradient(135deg, #5a6268 0%, #4a5056 100%);
+        }
         .refresh-btn {
-            background: #2196F3;
+            background: linear-gradient(135deg, #2196F3 0%, #0b7dda 100%);
             color: white;
+        }
+        .refresh-btn:hover {
+            background: linear-gradient(135deg, #0b7dda 0%, #0969b8 100%);
         }
         .search-box {
             flex-grow: 1;
-            max-width: 300px;
+            max-width: 400px;
+            position: relative;
         }
         .search-box input {
             width: 100%;
-            padding: 8px 15px;
-            border: 2px solid #ddd;
-            border-radius: 5px;
+            padding: 12px 45px 12px 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
             font-size: 14px;
             box-sizing: border-box;
+            transition: all 0.3s;
+            background: #f8f9fa;
         }
         .search-box input:focus {
             outline: none;
-            border-color: #4CAF50;
+            border-color: #3498db;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
         }
+        .search-box:after {
+            content: "🔍";
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #7f8c8d;
+        }
+        
+        /* Filters with Counts */
+        .filters-container {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            margin: 25px 0;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            border: 1px solid #e8e8e8;
+        }
+        .filters-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .filter-group {
+            position: relative;
+        }
+        .filter-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 14px;
+        }
+        .filter-group select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237f8c8d' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 15px center;
+            background-size: 15px;
+        }
+        .filter-group select:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+        .filter-count {
+            display: inline-block;
+            margin-left: 8px;
+            padding: 4px 10px;
+            background: #3498db;
+            color: white;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            min-width: 30px;
+            text-align: center;
+        }
+        .filter-option {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            align-items: center;
+        }
+        .filter-id {
+            font-family: 'Courier New', monospace;
+            color: #7f8c8d;
+            font-size: 12px;
+            margin-left: 8px;
+            background: #f8f9fa;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        
         #message {
-            padding: 15px;
-            border-radius: 5px;
-            margin: 15px 0;
-            font-weight: bold;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-weight: 600;
             text-align: center;
             display: none;
+            animation: slideIn 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        @keyframes slideIn {
+            from { transform: translateY(-10px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
         }
         #loading {
-            padding: 20px;
+            padding: 30px;
             text-align: center;
-            background: #fff3cd;
-            border: 1px solid #ffeaa7;
-            border-radius: 5px;
-            margin: 20px 0;
+            background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+            border: 2px solid #ffeaa7;
+            border-radius: 10px;
+            margin: 25px 0;
             color: #856404;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+        #loading:before {
+            content: "⏳";
+            font-size: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
         #error {
-            padding: 20px;
+            padding: 25px;
             text-align: center;
-            background: #f8d7da;
-            border: 1px solid #f5c6cb;
-            border-radius: 5px;
-            margin: 20px 0;
+            background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+            border: 2px solid #f5c6cb;
+            border-radius: 10px;
+            margin: 25px 0;
             color: #721c24;
             display: none;
+            animation: slideIn 0.3s ease;
         }
         
         /* Products Grid */
         .products-grid {
             display: grid;
             grid-template-columns: repeat(6, 1fr);
-            gap: 20px;
-            margin-top: 20px;
+            gap: 25px;
+            margin-top: 25px;
         }
         
         @media (max-width: 1600px) {
@@ -120,52 +255,57 @@
         /* Product Card */
         .product-card {
             background: white;
-            border-radius: 10px;
+            border-radius: 12px;
             overflow: hidden;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            transition: transform 0.3s, box-shadow 0.3s;
-            height: 350px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             display: flex;
             flex-direction: column;
             position: relative;
+            border: 1px solid #f0f0f0;
         }
         
         .product-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+            transform: translateY(-8px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.15);
         }
         
         .card-image {
             width: 100%;
             height: 200px;
-            background: #f8f9fa;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
             display: flex;
             align-items: center;
             justify-content: center;
             position: relative;
             overflow: hidden;
-            cursor: pointer;
         }
         
         .card-image img {
             width: 100%;
             height: 100%;
             object-fit: cover;
-            transition: transform 0.3s;
+            transition: all 0.5s ease;
+            opacity: 0;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        }
+        
+        .card-image img.loaded {
+            opacity: 1;
         }
         
         .product-card:hover .card-image img {
-            transform: scale(1.05);
+            transform: scale(1.1);
         }
         
         .image-actions {
             position: absolute;
-            top: 10px;
-            right: 10px;
+            top: 15px;
+            right: 15px;
             display: flex;
-            gap: 5px;
+            gap: 8px;
             opacity: 0;
-            transition: opacity 0.3s;
+            transition: all 0.3s;
         }
         
         .product-card:hover .image-actions {
@@ -173,22 +313,29 @@
         }
         
         .image-action-btn {
-            background: rgba(0,0,0,0.7);
-            color: white;
+            background: rgba(255,255,255,0.95);
+            color: #2c3e50;
             border: none;
-            border-radius: 3px;
-            padding: 5px 10px;
+            border-radius: 6px;
+            padding: 8px 15px;
             font-size: 12px;
             cursor: pointer;
-            transition: background 0.3s;
+            transition: all 0.3s;
+            font-weight: 600;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 5px;
         }
         
         .image-action-btn:hover {
-            background: rgba(0,0,0,0.9);
+            background: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
         
         .card-content {
-            padding: 15px;
+            padding: 20px;
             flex-grow: 1;
             display: flex;
             flex-direction: column;
@@ -196,35 +343,134 @@
         
         .card-title {
             font-size: 16px;
-            font-weight: bold;
-            color: #333;
-            margin-bottom: 8px;
-            line-height: 1.3;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 10px;
+            line-height: 1.4;
             display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
             overflow: hidden;
+            min-height: 44px;
         }
         
         .card-id {
-            font-size: 14px;
-            color: #666;
+            font-size: 12px;
+            color: #7f8c8d;
             background: #f8f9fa;
-            padding: 5px 10px;
-            border-radius: 4px;
-            font-family: monospace;
-            margin-top: auto;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            margin-bottom: 12px;
+            display: inline-block;
+            border: 1px solid #e8e8e8;
+        }
+        
+        /* Price Section */
+        .card-prices {
+            margin: 15px 0;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e8e8e8;
+        }
+        
+        .original-price {
+            font-size: 14px;
+            color: #95a5a6;
+            text-decoration: line-through;
+            margin-right: 10px;
+        }
+        
+        .special-price {
+            font-size: 18px;
+            font-weight: 700;
+            color: #e74c3c;
+        }
+        
+        .normal-price {
+            font-size: 18px;
+            font-weight: 700;
+            color: #2c3e50;
+        }
+        
+        /* Info Tags */
+        .card-info {
+            margin-top: 15px;
+            font-size: 12px;
+            color: #666;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        
+        .info-tag {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            color: #1565c0;
+            padding: 6px 12px;
+            border-radius: 20px;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 1px solid rgba(21, 101, 192, 0.1);
+            font-weight: 600;
+        }
+        
+        .info-tag:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .info-tag.seller {
+            background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+            color: #2e7d32;
+        }
+        
+        .info-tag.category {
+            background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);
+            color: #7b1fa2;
+        }
+        
+        .info-tag.status.active {
+            background: linear-gradient(135deg, #4CAF50 0%, #388e3c 100%);
+            color: white;
+        }
+        
+        .info-tag.status.inactive {
+            background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+            color: white;
+        }
+        
+        .info-tag.edit {
+            background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+            color: white;
+            cursor: pointer;
         }
         
         .empty-state {
             text-align: center;
-            padding: 50px 20px;
-            color: #666;
+            padding: 60px 30px;
+            color: #7f8c8d;
             font-size: 18px;
             grid-column: 1 / -1;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            border: 2px dashed #e0e0e0;
         }
         
-        /* Modal Styles (from galleries) */
+        .empty-state:before {
+            content: "📦";
+            font-size: 48px;
+            display: block;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+        
+        /* Modal Styles */
         .modal {
             display: none;
             position: fixed;
@@ -232,8 +478,15 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.5);
+            background: rgba(0,0,0,0.7);
             z-index: 1000;
+            animation: fadeIn 0.3s ease;
+            backdrop-filter: blur(5px);
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
         
         .modal-content {
@@ -242,37 +495,61 @@
             left: 50%;
             transform: translate(-50%, -50%);
             background: white;
-            padding: 30px;
-            border-radius: 10px;
-            max-width: 600px;
+            padding: 0;
+            border-radius: 16px;
             width: 90%;
+            max-width: 800px;
             max-height: 90vh;
             overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            animation: modalSlideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translate(-50%, -60%) scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+            }
         }
         
         .modal-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 2px solid #eee;
+            padding: 25px 30px;
+            border-bottom: 2px solid #f0f0f0;
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: white;
+            border-radius: 16px 16px 0 0;
         }
         
         .modal-header h2 {
             margin: 0;
-            color: #333;
-            font-size: 1.5rem;
+            color: white;
+            font-size: 22px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .modal-header h2:before {
+            content: "✏️";
+            font-size: 24px;
         }
         
         .close-modal {
-            background: none;
+            background: rgba(255,255,255,0.2);
             border: none;
-            font-size: 28px;
+            font-size: 32px;
             cursor: pointer;
-            color: #666;
-            width: 40px;
-            height: 40px;
+            color: white;
+            width: 45px;
+            height: 45px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -281,18 +558,384 @@
         }
         
         .close-modal:hover {
-            background: #f5f5f5;
-            color: #333;
+            background: rgba(255,255,255,0.3);
+            transform: rotate(90deg);
+        }
+        
+        .modal-body {
+            padding: 30px;
         }
         
         .field-info {
-            background: #f8f9fa;
-            padding: 12px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-            border-left: 4px solid #4CAF50;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            border-left: 6px solid #3498db;
+            border-right: 1px solid #e0e0e0;
+            border-top: 1px solid #e0e0e0;
+            border-bottom: 1px solid #e0e0e0;
         }
         
+        .field-info h3 {
+            margin: 0 0 10px 0;
+            color: #2c3e50;
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .field-info p {
+            margin: 0;
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+        
+        /* Enhanced Form Layout */
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+        
+        .form-section {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 12px;
+            border: 2px solid #e9ecef;
+        }
+        
+        .form-section h4 {
+            margin: 0 0 20px 0;
+            color: #2c3e50;
+            font-size: 16px;
+            font-weight: 600;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #3498db;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .form-section h4:before {
+            content: "📋";
+            font-size: 18px;
+        }
+        
+        .form-group {
+            margin-bottom: 25px;
+            position: relative;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .form-group label:after {
+            content: ":";
+            color: #3498db;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 14px 18px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 15px;
+            box-sizing: border-box;
+            transition: all 0.3s;
+            background: white;
+            font-family: inherit;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 4px rgba(52, 152, 219, 0.15);
+            transform: translateY(-2px);
+        }
+        
+        .form-control:hover {
+            border-color: #bdc3c7;
+        }
+        
+        select.form-control {
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237f8c8d' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 18px center;
+            background-size: 16px;
+            padding-right: 50px;
+        }
+        
+        .price-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .price-group .form-group {
+            margin-bottom: 0;
+        }
+        
+        .price-field {
+            position: relative;
+        }
+        
+        .price-field:before {
+            content: "₹";
+            position: absolute;
+            left: 18px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #3498db;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        
+        .price-field .form-control {
+            padding-left: 40px;
+        }
+        
+        textarea.form-control {
+            min-height: 120px;
+            resize: vertical;
+            line-height: 1.6;
+        }
+        
+        .form-control[readonly] {
+            background: #f8f9fa;
+            color: #7f8c8d;
+            cursor: not-allowed;
+        }
+        
+        .form-control[readonly]:focus {
+            border-color: #e0e0e0;
+            box-shadow: none;
+            transform: none;
+        }
+        
+        /* Form Validation States */
+        .form-control.valid {
+            border-color: #27ae60;
+        }
+        
+        .form-control.invalid {
+            border-color: #e74c3c;
+        }
+        
+        .validation-feedback {
+            display: none;
+            margin-top: 8px;
+            font-size: 12px;
+            padding: 8px 12px;
+            border-radius: 6px;
+        }
+        
+        .validation-feedback.valid {
+            display: block;
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .validation-feedback.invalid {
+            display: block;
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .modal-actions {
+            display: flex;
+            gap: 15px;
+            justify-content: flex-end;
+            padding: 25px 30px;
+            border-top: 2px solid #f0f0f0;
+            background: #f8f9fa;
+            border-radius: 0 0 16px 16px;
+        }
+        
+        .save-btn {
+            background: linear-gradient(135deg, #27ae60 0%, #219653 100%);
+            color: white;
+            padding: 14px 28px;
+            font-size: 15px;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.3s;
+        }
+        
+        .save-btn:hover {
+            background: linear-gradient(135deg, #219653 0%, #1e874b 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(39, 174, 96, 0.3);
+        }
+        
+        .save-btn:active {
+            transform: translateY(0);
+        }
+        
+        .cancel-btn {
+            background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);
+            color: white;
+            padding: 14px 28px;
+            font-size: 15px;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.3s;
+        }
+        
+        .cancel-btn:hover {
+            background: linear-gradient(135deg, #7f8c8d 0%, #6c757d 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(127, 140, 141, 0.3);
+        }
+        
+        .cancel-btn:active {
+            transform: translateY(0);
+        }
+        
+        /* Status Indicator */
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .status-indicator.active {
+            background: rgba(39, 174, 96, 0.1);
+            color: #27ae60;
+            border: 1px solid rgba(39, 174, 96, 0.2);
+        }
+        
+        .status-indicator.active:before {
+            content: "●";
+            color: #27ae60;
+            font-size: 8px;
+        }
+        
+        .status-indicator.inactive {
+            background: rgba(231, 76, 60, 0.1);
+            color: #e74c3c;
+            border: 1px solid rgba(231, 76, 60, 0.2);
+        }
+        
+        .status-indicator.inactive:before {
+            content: "●";
+            color: #e74c3c;
+            font-size: 8px;
+        }
+        
+        /* Required field indicator */
+        .required:after {
+            content: " *";
+            color: #e74c3c;
+        }
+        
+        /* Field description */
+        .field-description {
+            display: block;
+            margin-top: 6px;
+            font-size: 12px;
+            color: #7f8c8d;
+            font-style: italic;
+        }
+        
+        /* Loading state for form */
+        .form-loading {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255,255,255,0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            z-index: 10;
+        }
+        
+        .form-loading:before {
+            content: "";
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        /* Form success animation */
+        @keyframes successPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        .form-success {
+            animation: successPulse 0.6s ease;
+        }
+        
+        /* Responsive adjustments for modal */
+        @media (max-width: 768px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .price-group {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .modal-content {
+                width: 95%;
+                max-height: 85vh;
+            }
+            
+            .modal-body {
+                padding: 20px;
+            }
+            
+            .form-section {
+                padding: 20px;
+            }
+            
+            .modal-actions {
+                flex-direction: column-reverse;
+                gap: 10px;
+            }
+            
+            .save-btn, .cancel-btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+        
+        /* Image Modal Specific Styles (unchanged from previous) */
         .current-image-container {
             text-align: center;
             margin-bottom: 20px;
@@ -343,43 +986,6 @@
         .file-input {
             display: none;
         }
-        
-        .modal-actions {
-            display: flex;
-            gap: 10px;
-            justify-content: flex-end;
-            margin-top: 25px;
-            padding-top: 20px;
-            border-top: 2px solid #eee;
-        }
-        
-        .save-btn {
-            background: #28a745;
-            color: white;
-            padding: 10px 20px;
-            font-size: 14px;
-            border-radius: 5px;
-            border: none;
-            cursor: pointer;
-        }
-        
-        .save-btn:hover {
-            background: #218838;
-        }
-        
-        .cancel-btn {
-            background: #6c757d;
-            color: white;
-            padding: 10px 20px;
-            font-size: 14px;
-            border-radius: 5px;
-            border: none;
-            cursor: pointer;
-        }
-        
-        .cancel-btn:hover {
-            background: #5a6268;
-        }
     </style>
 </head>
 <body>
@@ -389,7 +995,42 @@
         <button class="back-btn" onclick="location.href='/home'">← Back to Dashboard</button>
         <button class="refresh-btn" onclick="loadProducts()">🔄 Refresh</button>
         <div class="search-box">
-            <input type="text" id="searchInput" placeholder="🔍 Search products...">
+            <input type="text" id="searchInput" placeholder="Search products by name, ID, or description...">
+        </div>
+    </div>
+    
+    <!-- Filters Section with Counts -->
+    <div class="filters-container">
+        <div class="filters-row">
+            <div class="filter-group">
+                <label>Status: <span class="filter-count" id="statusCount">0</span></label>
+                <select id="statusFilter">
+                    <option value="all">All Status</option>
+                    <option value="1">Active</option>
+                    <option value="0">Inactive</option>
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label>Category: <span class="filter-count" id="categoryCount">0</span></label>
+                <select id="categoryFilter">
+                    <option value="all">All Categories</option>
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label>Cat1: <span class="filter-count" id="cat1Count">0</span></label>
+                <select id="cat1Filter">
+                    <option value="all">All Cat1</option>
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label>Seller: <span class="filter-count" id="sellerCount">0</span></label>
+                <select id="sellerFilter">
+                    <option value="all">All Sellers</option>
+                </select>
+            </div>
         </div>
     </div>
     
@@ -407,42 +1048,169 @@
                 <button class="close-modal" onclick="closeImageModal()">&times;</button>
             </div>
             
-            <div class="field-info">
-                <h3 id="imageFieldName"></h3>
-                <p id="imageFieldInfo"></p>
-            </div>
-            
-            <!-- Current Image Preview -->
-            <div id="currentImageContainer" class="current-image-container">
-                <h4>Current Image</h4>
-                <img id="currentImagePreview" class="current-image" src="" alt="Current Image">
-                <div id="currentImageActions" style="margin-top: 10px;">
-                    <button onclick="viewCurrentImage()" class="image-action-btn">View</button>
-                    <button onclick="deleteCurrentImage()" class="image-action-btn delete">Delete</button>
+            <div class="modal-body">
+                <div class="field-info">
+                    <h3 id="imageFieldName">Product Image</h3>
+                    <p id="imageFieldInfo">Upload or replace the product image</p>
+                </div>
+                
+                <!-- Current Image Preview -->
+                <div id="currentImageContainer" class="current-image-container">
+                    <h4>Current Image</h4>
+                    <img id="currentImagePreview" class="current-image" src="" alt="Current Image">
+                    <div id="currentImageActions" style="margin-top: 15px; display: flex; gap: 10px; justify-content: center;">
+                        <button onclick="viewCurrentImage()" class="image-action-btn">👁️ View Full Image</button>
+                        <button onclick="deleteCurrentImage()" class="image-action-btn delete" style="background: #e74c3c; color: white;">🗑️ Delete Image</button>
+                    </div>
+                </div>
+                
+                <!-- Upload Section -->
+                <div class="upload-container" id="uploadContainer">
+                    <input type="file" id="imageFileInput" class="file-input" accept="image/*">
+                    <button type="button" class="upload-btn" onclick="document.getElementById('imageFileInput').click()">
+                        📁 Choose Image to Upload
+                    </button>
+                    <p style="margin: 15px 0; color: #666;">or drag and drop image here</p>
+                    <div style="font-size: 13px; color: #7f8c8d; margin-top: 15px; padding: 10px; background: rgba(255,255,255,0.5); border-radius: 6px;">
+                        <strong>Supported formats:</strong> JPG, PNG, GIF, WEBP<br>
+                        <strong>Maximum file size:</strong> 5MB<br>
+                        <strong>Recommended dimensions:</strong> 800×600px or larger
+                    </div>
+                </div>
+                
+                <!-- Uploaded Image Preview -->
+                <div id="imagePreviewContainer" style="display: none; text-align: center; margin: 25px 0; padding: 20px; background: #f8f9fa; border-radius: 10px; border: 2px solid #e0e0e0;">
+                    <h4 style="margin: 0 0 15px 0; color: #2c3e50;">Uploaded Image Preview</h4>
+                    <img id="uploadedImagePreview" style="max-width: 100%; max-height: 250px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" src="" alt="Uploaded Image">
+                    <div style="margin-top: 15px; color: #27ae60; font-weight: 600;">
+                        ✅ Image ready to save
+                    </div>
+                </div>
+                
+                <div class="modal-actions">
+                    <button type="button" class="cancel-btn" onclick="closeImageModal()">✕ Cancel</button>
+                    <button type="button" class="save-btn" id="saveImageBtn" onclick="saveImage()" disabled>
+                        💾 Save Image
+                    </button>
                 </div>
             </div>
+        </div>
+    </div>
+    
+    <!-- Enhanced Edit Field Modal -->
+    <div id="editFieldModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit Product Details</h2>
+                <button class="close-modal" onclick="closeEditFieldModal()">&times;</button>
+            </div>
             
-            <!-- Upload Section -->
-            <div class="upload-container" id="uploadContainer">
-                <input type="file" id="imageFileInput" class="file-input" accept="image/*">
-                <button type="button" class="upload-btn" onclick="document.getElementById('imageFileInput').click()">
-                    📁 Choose Image to Upload
-                </button>
-                <p>or drag and drop image here</p>
-                <div style="font-size: 12px; color: #666; margin-top: 10px;">
-                    Supported formats: JPG, PNG, GIF, WEBP (Max 5MB)
+            <div class="modal-body">
+                <div class="field-info">
+                    <h3 id="editFieldName">Edit Product</h3>
+                    <p id="editFieldInfo">Update product details and pricing information</p>
                 </div>
-            </div>
-            
-            <!-- Uploaded Image Preview -->
-            <div id="imagePreviewContainer" style="display: none; text-align: center; margin: 20px 0;">
-                <h4>Uploaded Image Preview</h4>
-                <img id="uploadedImagePreview" style="max-width: 100%; max-height: 200px; border-radius: 5px;" src="" alt="Uploaded Image">
-            </div>
-            
-            <div class="modal-actions">
-                <button type="button" class="cancel-btn" onclick="closeImageModal()">Cancel</button>
-                <button type="button" class="save-btn" id="saveImageBtn" onclick="saveImage()" disabled>Save Image</button>
+                
+                <form id="editForm">
+                    <div class="form-grid">
+                        <!-- Basic Information Section -->
+                        <div class="form-section">
+                            <h4>Basic Information</h4>
+                            
+                            <div class="form-group">
+                                <label class="required">Product Status</label>
+                                <select id="editStatus" name="status" class="form-control" required>
+                                    <option value="">-- Select Status --</option>
+                                    <option value="1">Active</option>
+                                    <option value="0">Inactive</option>
+                                </select>
+                                <span class="field-description">Determines product visibility</span>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="required">Category</label>
+                                <select id="editCategory" name="category_id" class="form-control" required>
+                                    <option value="">-- Select Category --</option>
+                                </select>
+                                <span class="field-description">Main product category</span>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Sub Category (Cat1)</label>
+                                <select id="editCat1" name="cat1" class="form-control">
+                                    <option value="">-- Select Sub Category --</option>
+                                </select>
+                                <span class="field-description">Optional sub-category</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Seller & Pricing Section -->
+                        <div class="form-section">
+                            <h4>Seller & Pricing</h4>
+                            
+                            <div class="form-group">
+                                <label class="required">Seller</label>
+                                <select id="editSeller" name="seller_id" class="form-control" required>
+                                    <option value="">-- Select Seller --</option>
+                                </select>
+                                <span class="field-description">Product owner/seller</span>
+                            </div>
+                            
+                            <div class="price-group">
+                                <div class="form-group price-field">
+                                    <label class="required">Regular Price</label>
+                                    <input type="number" id="editPrice" name="retail_simple_price" 
+                                           class="form-control" step="0.01" min="0" required 
+                                           placeholder="0.00">
+                                    <span class="field-description">Base selling price</span>
+                                </div>
+                                
+                                <div class="form-group price-field">
+                                    <label>Special Price</label>
+                                    <input type="number" id="editSpecialPrice" name="retail_simple_special_price" 
+                                           class="form-control" step="0.01" min="0" 
+                                           placeholder="0.00">
+                                    <span class="field-description">Discounted price (optional)</span>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Current Status</label>
+                                <div id="currentStatusDisplay" class="status-indicator inactive">
+                                    Inactive
+                                </div>
+                                <span class="field-description">Current product status</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Additional Information Section -->
+                    <div class="form-section">
+                        <h4>Additional Information</h4>
+                        <div class="form-group">
+                            <label>Product SKU</label>
+                            <input type="text" id="editSku" name="sku" class="form-control" 
+                                   placeholder="Enter product SKU">
+                            <span class="field-description">Stock Keeping Unit (optional)</span>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Quantity in Stock</label>
+                            <input type="number" id="editQuantity" name="quantity" class="form-control" 
+                                   min="0" step="1" placeholder="0">
+                            <span class="field-description">Available stock quantity</span>
+                        </div>
+                    </div>
+                    
+                    <div class="modal-actions">
+                        <button type="button" class="cancel-btn" onclick="closeEditFieldModal()">
+                            ✕ Cancel
+                        </button>
+                        <button type="submit" class="save-btn">
+                            💾 Save Changes
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -452,12 +1220,87 @@
         let filteredProducts = [];
         let searchTimeout = null;
         
+        // Store categories and sellers for dropdowns
+        let categoriesList = [];
+        let sellersList = [];
+        
         // Image upload variables
         let currentProductId = null;
         let currentImageField = null;
         let currentImageUrl = null;
         let uploadedImageUrl = null;
         let uploadedFile = null;
+        
+        // Edit field variables
+        let currentEditProductId = null;
+        let currentEditField = null;
+        
+        // Filter counts
+        let filterCounts = {
+            status: { all: 0, '1': 0, '0': 0 },
+            category: {},
+            cat1: {},
+            seller: {}
+        };
+        
+        // Image loader for smooth loading
+        class ImageLoader {
+            constructor() {
+                this.images = new Map();
+            }
+            
+            loadImage(url, element) {
+                if (!url || url.trim() === '') {
+                    element.src = 'https://via.placeholder.com/300x200?text=No+Image';
+                    element.classList.add('loaded');
+                    return;
+                }
+                
+                // Check if image is already loaded
+                if (this.images.has(url)) {
+                    const imgData = this.images.get(url);
+                    if (imgData.loaded) {
+                        element.src = url;
+                        element.classList.add('loaded');
+                    } else {
+                        imgData.elements.push(element);
+                    }
+                    return;
+                }
+                
+                // Create new image loading
+                const img = new Image();
+                const imgData = {
+                    loaded: false,
+                    elements: [element]
+                };
+                
+                this.images.set(url, imgData);
+                
+                img.onload = () => {
+                    imgData.loaded = true;
+                    imgData.elements.forEach(el => {
+                        el.src = url;
+                        setTimeout(() => {
+                            el.classList.add('loaded');
+                        }, 10);
+                    });
+                };
+                
+                img.onerror = () => {
+                    imgData.loaded = true;
+                    imgData.elements.forEach(el => {
+                        el.src = 'https://via.placeholder.com/300x200?text=Image+Error';
+                        el.classList.add('loaded');
+                    });
+                };
+                
+                // Start loading
+                img.src = url;
+            }
+        }
+        
+        const imageLoader = new ImageLoader();
         
         // Helper function to get full image URL
         function getFullImageUrl(url) {
@@ -490,16 +1333,117 @@
                     filterProducts();
                 }, 300);
             });
+            
+            // Setup filter change events with dependent filtering
+            document.getElementById('statusFilter').addEventListener('change', function() {
+                updateFilterOptions();
+                filterProducts();
+            });
+            
+            document.getElementById('categoryFilter').addEventListener('change', function() {
+                updateFilterOptions();
+                filterProducts();
+            });
+            
+            document.getElementById('cat1Filter').addEventListener('change', function() {
+                updateFilterOptions();
+                filterProducts();
+            });
+            
+            document.getElementById('sellerFilter').addEventListener('change', function() {
+                updateFilterOptions();
+                filterProducts();
+            });
+            
+            // Form validation
+            setupFormValidation();
         });
         
-        // Load products
+        // Form validation setup
+        function setupFormValidation() {
+            const form = document.getElementById('editForm');
+            const priceInput = document.getElementById('editPrice');
+            const specialPriceInput = document.getElementById('editSpecialPrice');
+            
+            // Price validation
+            priceInput.addEventListener('input', function() {
+                validatePrice(this);
+            });
+            
+            specialPriceInput.addEventListener('input', function() {
+                validateSpecialPrice(this);
+            });
+            
+            // Form submission validation
+            form.addEventListener('submit', function(e) {
+                if (!validateForm()) {
+                    e.preventDefault();
+                    showMessage('❌ Please fix the errors in the form', 'error');
+                }
+            });
+        }
+        
+        function validatePrice(input) {
+            const value = parseFloat(input.value);
+            if (value < 0) {
+                input.classList.add('invalid');
+                input.classList.remove('valid');
+                return false;
+            } else if (value > 0) {
+                input.classList.add('valid');
+                input.classList.remove('invalid');
+                return true;
+            }
+            return true;
+        }
+        
+        function validateSpecialPrice(input) {
+            const price = parseFloat(document.getElementById('editPrice').value);
+            const specialPrice = parseFloat(input.value);
+            
+            if (specialPrice < 0) {
+                input.classList.add('invalid');
+                input.classList.remove('valid');
+                return false;
+            } else if (specialPrice > 0 && specialPrice >= price) {
+                input.classList.add('invalid');
+                input.classList.remove('valid');
+                showMessage('Special price must be less than regular price', 'error');
+                return false;
+            } else if (specialPrice > 0) {
+                input.classList.add('valid');
+                input.classList.remove('invalid');
+                return true;
+            }
+            return true;
+        }
+        
+        function validateForm() {
+            let isValid = true;
+            
+            // Check required fields
+            const requiredFields = ['editStatus', 'editCategory', 'editSeller', 'editPrice'];
+            requiredFields.forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                if (!field.value.trim()) {
+                    field.classList.add('invalid');
+                    isValid = false;
+                } else {
+                    field.classList.remove('invalid');
+                }
+            });
+            
+            return isValid;
+        }
+        
+        // Load products with enhanced data
         async function loadProducts() {
             document.getElementById('loading').style.display = 'block';
             document.getElementById('error').style.display = 'none';
             document.getElementById('productsContainer').innerHTML = '';
             
             try {
-                const response = await fetch('/api/products');
+                const response = await fetch('/api/productsenhanced');
                 const data = await response.json();
                 
                 if (data && data.success && Array.isArray(data.data)) {
@@ -541,7 +1485,17 @@
                         };
                     });
                     
-                    showMessage(`Loaded ${allProducts.length} products`, 'success');
+                    // Store categories and sellers for dropdowns
+                    categoriesList = data.categories || [];
+                    sellersList = data.sellers || [];
+                    
+                    // Calculate initial filter counts
+                    calculateFilterCounts();
+                    
+                    // Populate filter dropdowns
+                    populateFilters();
+                    
+                    showMessage(`✅ Loaded ${allProducts.length} products successfully`, 'success');
                     filterProducts();
                 } else {
                     throw new Error(data?.error || 'Invalid data format');
@@ -549,30 +1503,313 @@
             } catch (error) {
                 console.error('Error:', error);
                 document.getElementById('error').style.display = 'block';
-                document.getElementById('error').textContent = 'Error: ' + error.message;
+                document.getElementById('error').textContent = 'Error loading products: ' + error.message;
+                showMessage('❌ Failed to load products', 'error');
             } finally {
                 document.getElementById('loading').style.display = 'none';
             }
         }
         
-        // Filter products based on search
+        // Calculate filter counts
+        function calculateFilterCounts() {
+            // Reset counts
+            filterCounts = {
+                status: { all: allProducts.length, '1': 0, '0': 0 },
+                category: {},
+                cat1: {},
+                seller: {}
+            };
+            
+            // Calculate counts
+            allProducts.forEach(product => {
+                // Status counts
+                if (product.status == '1' || product.status == 1) {
+                    filterCounts.status['1']++;
+                } else {
+                    filterCounts.status['0']++;
+                }
+                
+                // Category counts
+                if (product.category_id) {
+                    const catId = String(product.category_id);
+                    if (!filterCounts.category[catId]) {
+                        filterCounts.category[catId] = 0;
+                    }
+                    filterCounts.category[catId]++;
+                }
+                
+                // Cat1 counts
+                if (product.cat1) {
+                    const cat1Id = String(product.cat1);
+                    if (!filterCounts.cat1[cat1Id]) {
+                        filterCounts.cat1[cat1Id] = 0;
+                    }
+                    filterCounts.cat1[cat1Id]++;
+                }
+                
+                // Seller counts
+                if (product.seller_id) {
+                    const sellerId = String(product.seller_id);
+                    if (!filterCounts.seller[sellerId]) {
+                        filterCounts.seller[sellerId] = 0;
+                    }
+                    filterCounts.seller[sellerId]++;
+                }
+            });
+            
+            // Update filter count badges
+            updateFilterCountBadges();
+        }
+        
+        // Update filter count badges
+        function updateFilterCountBadges() {
+            const statusFilter = document.getElementById('statusFilter');
+            const categoryFilter = document.getElementById('categoryFilter');
+            const cat1Filter = document.getElementById('cat1Filter');
+            const sellerFilter = document.getElementById('sellerFilter');
+            
+            // Get selected values
+            const selectedStatus = statusFilter.value;
+            const selectedCategory = categoryFilter.value;
+            const selectedCat1 = cat1Filter.value;
+            const selectedSeller = sellerFilter.value;
+            
+            // Calculate counts for current selection
+            let filtered = [...allProducts];
+            
+            if (selectedStatus !== 'all') {
+                filtered = filtered.filter(p => String(p.status) === selectedStatus);
+            }
+            if (selectedCategory !== 'all') {
+                filtered = filtered.filter(p => String(p.category_id) === selectedCategory);
+            }
+            if (selectedCat1 !== 'all') {
+                filtered = filtered.filter(p => String(p.cat1) === selectedCat1);
+            }
+            if (selectedSeller !== 'all') {
+                filtered = filtered.filter(p => String(p.seller_id) === selectedSeller);
+            }
+            
+            // Update count badges
+            document.getElementById('statusCount').textContent = filtered.length;
+            
+            // Count unique categories in filtered results
+            const uniqueCategories = new Set(filtered.map(p => p.category_id).filter(id => id));
+            document.getElementById('categoryCount').textContent = uniqueCategories.size;
+            
+            // Count unique cat1 in filtered results
+            const uniqueCat1 = new Set(filtered.map(p => p.cat1).filter(id => id));
+            document.getElementById('cat1Count').textContent = uniqueCat1.size;
+            
+            // Count unique sellers in filtered results
+            const uniqueSellers = new Set(filtered.map(p => p.seller_id).filter(id => id));
+            document.getElementById('sellerCount').textContent = uniqueSellers.size;
+        }
+        
+        // Populate filter dropdowns with counts
+        function populateFilters() {
+            const categoryFilter = document.getElementById('categoryFilter');
+            const cat1Filter = document.getElementById('cat1Filter');
+            const sellerFilter = document.getElementById('sellerFilter');
+            
+            // Clear existing options (keep "All" option)
+            while (categoryFilter.options.length > 1) categoryFilter.remove(1);
+            while (cat1Filter.options.length > 1) cat1Filter.remove(1);
+            while (sellerFilter.options.length > 1) sellerFilter.remove(1);
+            
+            // Get unique values from ALL products
+            const categories = [...new Set(allProducts.map(p => p.category_id).filter(id => id))];
+            const cat1s = [...new Set(allProducts.map(p => p.cat1).filter(id => id))];
+            const sellers = [...new Set(allProducts.map(p => p.seller_id).filter(id => id))];
+            
+            // Sort by count (descending)
+            categories.sort((a, b) => filterCounts.category[b] - filterCounts.category[a]);
+            cat1s.sort((a, b) => filterCounts.cat1[b] - filterCounts.cat1[a]);
+            sellers.sort((a, b) => filterCounts.seller[b] - filterCounts.seller[a]);
+            
+            // Populate category filter with counts
+            categories.forEach(id => {
+                const product = allProducts.find(p => p.category_id == id);
+                const name = product?.category_name || `Category ${id}`;
+                const count = filterCounts.category[id] || 0;
+                const option = new Option(`${name} (${count} products)`, id);
+                categoryFilter.add(option);
+            });
+            
+            // Populate cat1 filter with counts
+            cat1s.forEach(id => {
+                const product = allProducts.find(p => p.cat1 == id);
+                const name = product?.cat1_name || `Cat1 ${id}`;
+                const count = filterCounts.cat1[id] || 0;
+                const option = new Option(`${name} (${count} products)`, id);
+                cat1Filter.add(option);
+            });
+            
+            // Populate seller filter with counts
+            sellers.forEach(id => {
+                const product = allProducts.find(p => p.seller_id == id);
+                const name = product?.seller_name || `Seller ${id}`;
+                const count = filterCounts.seller[id] || 0;
+                const option = new Option(`${name} (${count} products)`, id);
+                sellerFilter.add(option);
+            });
+        }
+        
+        // Update filter options based on current selections (Dependent Filtering)
+        function updateFilterOptions() {
+            const status = document.getElementById('statusFilter').value;
+            const category = document.getElementById('categoryFilter').value;
+            const cat1 = document.getElementById('cat1Filter').value;
+            const seller = document.getElementById('sellerFilter').value;
+            
+            // Filter products based on current selections
+            let filtered = [...allProducts];
+            
+            if (status !== 'all') {
+                filtered = filtered.filter(p => String(p.status) === status);
+            }
+            
+            if (category !== 'all') {
+                filtered = filtered.filter(p => String(p.category_id) === category);
+            }
+            
+            if (cat1 !== 'all') {
+                filtered = filtered.filter(p => String(p.cat1) === cat1);
+            }
+            
+            if (seller !== 'all') {
+                filtered = filtered.filter(p => String(p.seller_id) === seller);
+            }
+            
+            // Get available options for each filter with counts
+            const availableCategories = [...new Set(filtered.map(p => p.category_id).filter(id => id))];
+            const availableCat1s = [...new Set(filtered.map(p => p.cat1).filter(id => id))];
+            const availableSellers = [...new Set(filtered.map(p => p.seller_id).filter(id => id))];
+            
+            // Calculate counts for available options
+            const categoryCounts = {};
+            const cat1Counts = {};
+            const sellerCounts = {};
+            
+            filtered.forEach(p => {
+                if (p.category_id) {
+                    const id = String(p.category_id);
+                    categoryCounts[id] = (categoryCounts[id] || 0) + 1;
+                }
+                if (p.cat1) {
+                    const id = String(p.cat1);
+                    cat1Counts[id] = (cat1Counts[id] || 0) + 1;
+                }
+                if (p.seller_id) {
+                    const id = String(p.seller_id);
+                    sellerCounts[id] = (sellerCounts[id] || 0) + 1;
+                }
+            });
+            
+            // Update category filter
+            updateFilterDropdownWithCounts('categoryFilter', availableCategories, 'category_name', category, categoryCounts);
+            
+            // Update cat1 filter
+            updateFilterDropdownWithCounts('cat1Filter', availableCat1s, 'cat1_name', cat1, cat1Counts);
+            
+            // Update seller filter
+            updateFilterDropdownWithCounts('sellerFilter', availableSellers, 'seller_name', seller, sellerCounts);
+            
+            // Update count badges
+            updateFilterCountBadges();
+        }
+        
+        // Helper function to update a filter dropdown with counts
+        function updateFilterDropdownWithCounts(filterId, availableIds, nameField, currentSelected, counts) {
+            const dropdown = document.getElementById(filterId);
+            const currentValue = dropdown.value;
+            
+            // Clear existing options (keep "All" option)
+            while (dropdown.options.length > 1) {
+                dropdown.remove(1);
+            }
+            
+            // Sort by count (descending)
+            availableIds.sort((a, b) => (counts[b] || 0) - (counts[a] || 0));
+            
+            // Add available options with counts
+            availableIds.forEach(id => {
+                const product = allProducts.find(p => {
+                    if (nameField === 'category_name') return p.category_id == id;
+                    if (nameField === 'cat1_name') return p.cat1 == id;
+                    if (nameField === 'seller_name') return p.seller_id == id;
+                    return false;
+                });
+                
+                const name = product?.[nameField] || `${nameField.split('_')[0]} ${id}`;
+                const count = counts[id] || 0;
+                const option = new Option(`${name} (${count} products)`, id);
+                dropdown.add(option);
+            });
+            
+            // Restore selection if still available, otherwise set to 'all'
+            if (currentSelected !== 'all' && availableIds.includes(parseInt(currentSelected))) {
+                dropdown.value = currentSelected;
+            } else {
+                dropdown.value = 'all';
+            }
+        }
+        
+        // Filter products based on search and filters
         function filterProducts() {
             const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const statusFilter = document.getElementById('statusFilter').value;
+            const categoryFilter = document.getElementById('categoryFilter').value;
+            const cat1Filter = document.getElementById('cat1Filter').value;
+            const sellerFilter = document.getElementById('sellerFilter').value;
             
-            if (!searchTerm) {
-                filteredProducts = [...allProducts];
-            } else {
-                filteredProducts = allProducts.filter(product => {
+            filteredProducts = allProducts.filter(product => {
+                // Search filter
+                if (searchTerm) {
                     const searchable = [
                         product.name,
                         product.id.toString(),
                         product.sku || '',
-                        product.description || ''
+                        product.description || '',
+                        product.category_name || '',
+                        product.seller_name || ''
                     ].join(' ').toLowerCase();
                     
-                    return searchable.includes(searchTerm);
-                });
-            }
+                    if (!searchable.includes(searchTerm)) {
+                        return false;
+                    }
+                }
+                
+                // Status filter
+                if (statusFilter !== 'all') {
+                    if (String(product.status) !== statusFilter) {
+                        return false;
+                    }
+                }
+                
+                // Category filter
+                if (categoryFilter !== 'all') {
+                    if (String(product.category_id) !== categoryFilter) {
+                        return false;
+                    }
+                }
+                
+                // Cat1 filter
+                if (cat1Filter !== 'all') {
+                    if (String(product.cat1) !== cat1Filter) {
+                        return false;
+                    }
+                }
+                
+                // Seller filter
+                if (sellerFilter !== 'all') {
+                    if (String(product.seller_id) !== sellerFilter) {
+                        return false;
+                    }
+                }
+                
+                return true;
+            });
             
             displayProducts();
         }
@@ -582,41 +1819,329 @@
             const container = document.getElementById('productsContainer');
             
             if (filteredProducts.length === 0) {
-                container.innerHTML = '<div class="empty-state">No products found</div>';
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div style="font-size: 24px; margin-bottom: 10px;">🔍</div>
+                        <div style="font-size: 20px; font-weight: 600; margin-bottom: 10px; color: #2c3e50;">No Products Found</div>
+                        <div style="color: #7f8c8d; margin-bottom: 20px;">Try adjusting your search or filters</div>
+                        <button onclick="resetFilters()" style="background: #3498db; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                            Reset All Filters
+                        </button>
+                    </div>
+                `;
                 return;
             }
             
             let html = '';
             filteredProducts.forEach(product => {
+                const isActive = product.status == '1' || product.status == 1;
+                const hasSpecialPrice = product.retail_simple_special_price && 
+                                       parseFloat(product.retail_simple_special_price) > 0 &&
+                                       product.retail_simple_price &&
+                                       parseFloat(product.retail_simple_special_price) < parseFloat(product.retail_simple_price);
+                
                 html += `
                 <div class="product-card">
                     <div class="card-image" onclick="viewImage('${product.image || ''}')">
-                        ${product.image ? 
-                            `<img src="${product.image}" alt="${product.name}" 
-                                 onerror="this.src='https://via.placeholder.com/300x200?text=No+Image'">` :
-                            `<div style="color: #999; text-align: center;">
-                                <div style="font-size: 40px; margin-bottom: 10px;">📷</div>
-                                <div>No Image</div>
-                            </div>`
-                        }
+                        <img data-src="${product.image || ''}" alt="${product.name}" 
+                             onerror="this.src='https://via.placeholder.com/300x200?text=No+Image'; this.classList.add('loaded')">
                         <div class="image-actions">
                             <button class="image-action-btn" onclick="openImageModal(${product.id}, 'image', '${encodeURIComponent(product.image || '')}'); event.stopPropagation();">
-                                Edit
+                                ✏️ Edit Image
                             </button>
                         </div>
                     </div>
                     <div class="card-content">
                         <div class="card-title">${product.name}</div>
-                        <div class="card-id">ID: ${product.id}</div>
+                        <div class="card-id">ID: ${product.id}${product.sku ? ` | SKU: ${product.sku}` : ''}</div>
+                        
+                        <!-- Price Section -->
+                        <div class="card-prices">
+                            ${hasSpecialPrice ? `
+                                <span class="original-price">${product.formatted_price}</span>
+                                <span class="special-price">${product.formatted_special_price}</span>
+                            ` : product.retail_simple_price ? `
+                                <span class="normal-price">${product.formatted_price}</span>
+                            ` : '<span style="color: #95a5a6;">No price set</span>'}
+                        </div>
+                        
+                        <!-- Info Tags with Edit Option -->
+                        <div class="card-info">
+                            ${product.category_name ? `
+                                <span class="info-tag category" 
+                                      onclick="setFilter('categoryFilter', '${product.category_id}')"
+                                      title="Click to filter by this category">
+                                    📂 ${product.category_name}
+                                </span>
+                            ` : ''}
+                            ${product.cat1_name ? `
+                                <span class="info-tag category" 
+                                      onclick="setFilter('cat1Filter', '${product.cat1}')"
+                                      title="Click to filter by this cat1">
+                                    📁 ${product.cat1_name}
+                                </span>
+                            ` : ''}
+                            ${product.seller_name ? `
+                                <span class="info-tag seller" 
+                                      onclick="setFilter('sellerFilter', '${product.seller_id}')"
+                                      title="Click to filter by this seller">
+                                    👤 ${product.seller_name}
+                                </span>
+                            ` : ''}
+                            <span class="info-tag status ${isActive ? 'active' : 'inactive'}"
+                                  onclick="setFilter('statusFilter', '${isActive ? '1' : '0'}')"
+                                  title="Click to filter by this status">
+                                ${isActive ? '✅ Active' : '❌ Inactive'}
+                            </span>
+                            <span class="info-tag edit" 
+                                  onclick="openEditOptionsModal(${product.id})"
+                                  title="Edit all fields">
+                                ✏️ Edit Product
+                            </span>
+                        </div>
                     </div>
                 </div>
                 `;
             });
             
             container.innerHTML = html;
+            
+            // Load images smoothly after DOM is updated
+            setTimeout(() => {
+                document.querySelectorAll('.card-image img').forEach(img => {
+                    const src = img.getAttribute('data-src');
+                    if (src) {
+                        imageLoader.loadImage(src, img);
+                    } else {
+                        img.src = 'https://via.placeholder.com/300x200?text=No+Image';
+                        img.classList.add('loaded');
+                    }
+                });
+            }, 10);
         }
         
-        // Image Modal Functions
+        function resetFilters() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('statusFilter').value = 'all';
+            document.getElementById('categoryFilter').value = 'all';
+            document.getElementById('cat1Filter').value = 'all';
+            document.getElementById('sellerFilter').value = 'all';
+            updateFilterOptions();
+            filterProducts();
+        }
+        
+        // Set filter from click on tag
+        function setFilter(filterId, value) {
+            const filter = document.getElementById(filterId);
+            filter.value = value;
+            updateFilterOptions();
+            filterProducts();
+        }
+        
+        // Enhanced Edit Form Modal
+        function openEditOptionsModal(productId) {
+            const product = allProducts.find(p => p.id == productId);
+            if (!product) {
+                showMessage('❌ Product not found', 'error');
+                return;
+            }
+            
+            currentEditProductId = productId;
+            
+            // Set modal info
+            document.getElementById('editFieldName').textContent = `Edit: ${product.name}`;
+            document.getElementById('editFieldInfo').textContent = `Product ID: ${productId}`;
+            
+            // Update current status display
+            const isActive = product.status == '1' || product.status == 1;
+            const statusDisplay = document.getElementById('currentStatusDisplay');
+            statusDisplay.className = `status-indicator ${isActive ? 'active' : 'inactive'}`;
+            statusDisplay.textContent = isActive ? 'Active' : 'Inactive';
+            
+            // Populate category dropdown
+            const categorySelect = document.getElementById('editCategory');
+            categorySelect.innerHTML = '<option value="">-- Select Category --</option>';
+            categoriesList.forEach(cat => {
+                const selected = cat.id == product.category_id ? 'selected' : '';
+                categorySelect.innerHTML += `<option value="${cat.id}" ${selected}>${cat.name} (ID: ${cat.id})</option>`;
+            });
+            
+            // Populate cat1 dropdown
+            const cat1Select = document.getElementById('editCat1');
+            cat1Select.innerHTML = '<option value="">-- Select Sub Category --</option>';
+            categoriesList.forEach(cat => {
+                const selected = cat.id == product.cat1 ? 'selected' : '';
+                cat1Select.innerHTML += `<option value="${cat.id}" ${selected}>${cat.name} (ID: ${cat.id})</option>`;
+            });
+            
+            // Populate seller dropdown
+            const sellerSelect = document.getElementById('editSeller');
+            sellerSelect.innerHTML = '<option value="">-- Select Seller --</option>';
+            sellersList.forEach(seller => {
+                const selected = seller.user_id == product.seller_id ? 'selected' : '';
+                sellerSelect.innerHTML += `<option value="${seller.user_id}" ${selected}>${seller.store_name} (ID: ${seller.user_id})</option>`;
+            });
+            
+            // Set other field values
+            document.getElementById('editStatus').value = product.status || '';
+            document.getElementById('editPrice').value = product.retail_simple_price || '';
+            document.getElementById('editSpecialPrice').value = product.retail_simple_special_price || '';
+            document.getElementById('editSku').value = product.sku || '';
+            document.getElementById('editQuantity').value = product.quantity || '';
+            
+            // Clear validation classes
+            const formControls = document.querySelectorAll('.form-control');
+            formControls.forEach(control => {
+                control.classList.remove('invalid', 'valid');
+            });
+            
+            // Show modal with animation
+            const modal = document.getElementById('editFieldModal');
+            modal.style.display = 'block';
+            
+            // Focus first field
+            setTimeout(() => {
+                document.getElementById('editStatus').focus();
+            }, 100);
+        }
+        
+        // Close field edit modal
+        function closeEditFieldModal() {
+            const modal = document.getElementById('editFieldModal');
+            modal.style.display = 'none';
+            currentEditProductId = null;
+            currentEditField = null;
+            
+            // Reset form validation
+            const formControls = document.querySelectorAll('.form-control');
+            formControls.forEach(control => {
+                control.classList.remove('invalid', 'valid');
+            });
+        }
+        
+        // Handle field edit form submission
+        document.getElementById('editForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            if (!validateForm()) {
+                return;
+            }
+            
+            // Collect all form data
+            const formData = {
+                status: document.getElementById('editStatus').value,
+                category_id: document.getElementById('editCategory').value,
+                cat1: document.getElementById('editCat1').value || null,
+                seller_id: document.getElementById('editSeller').value,
+                retail_simple_price: document.getElementById('editPrice').value,
+                retail_simple_special_price: document.getElementById('editSpecialPrice').value || null,
+                sku: document.getElementById('editSku').value || null,
+                quantity: document.getElementById('editQuantity').value || null
+            };
+            
+            // Filter out empty values
+            const updateData = {};
+            Object.keys(formData).forEach(key => {
+                if (formData[key] !== '' && formData[key] !== undefined && formData[key] !== null) {
+                    updateData[key] = formData[key];
+                }
+            });
+            
+            if (Object.keys(updateData).length === 0) {
+                showMessage('ℹ️ No changes to save', 'info');
+                return;
+            }
+            
+            try {
+                showMessage('🔄 Saving changes...', 'info');
+                
+                // Add loading state to form
+                const saveBtn = document.querySelector('#editForm .save-btn');
+                const originalText = saveBtn.innerHTML;
+                saveBtn.innerHTML = '⏳ Saving...';
+                saveBtn.disabled = true;
+                
+                const response = await fetch(`/api/products/${currentEditProductId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(updateData)
+                });
+                
+                const result = await response.json();
+                
+                // Restore button
+                saveBtn.innerHTML = originalText;
+                saveBtn.disabled = false;
+                
+                if (result.success) {
+                    // Add success animation
+                    document.querySelector('.modal-content').classList.add('form-success');
+                    
+                    showMessage('✅ Product updated successfully!', 'success');
+                    
+                    // Update the product in allProducts array
+                    const productIndex = allProducts.findIndex(p => p.id == currentEditProductId);
+                    if (productIndex !== -1) {
+                        // Update basic fields
+                        Object.keys(updateData).forEach(key => {
+                            allProducts[productIndex][key] = updateData[key];
+                        });
+                        
+                        // Update names if IDs changed
+                        if (updateData.category_id) {
+                            const category = categoriesList.find(cat => cat.id == updateData.category_id);
+                            allProducts[productIndex].category_name = category?.name || '';
+                        }
+                        
+                        if (updateData.cat1) {
+                            const category = categoriesList.find(cat => cat.id == updateData.cat1);
+                            allProducts[productIndex].cat1_name = category?.name || '';
+                        }
+                        
+                        if (updateData.seller_id) {
+                            const seller = sellersList.find(s => s.user_id == updateData.seller_id);
+                            allProducts[productIndex].seller_name = seller?.store_name || '';
+                        }
+                        
+                        // Update price display
+                        if (updateData.retail_simple_price) {
+                            allProducts[productIndex].formatted_price = 
+                                `₹${parseFloat(updateData.retail_simple_price).toFixed(2)}`;
+                        }
+                        
+                        if (updateData.retail_simple_special_price) {
+                            allProducts[productIndex].formatted_special_price = 
+                                `₹${parseFloat(updateData.retail_simple_special_price).toFixed(2)}`;
+                        }
+                    }
+                    
+                    // Refresh display and filters
+                    calculateFilterCounts();
+                    updateFilterOptions();
+                    filterProducts();
+                    
+                    setTimeout(() => {
+                        closeEditFieldModal();
+                        // Remove success animation
+                        setTimeout(() => {
+                            document.querySelector('.modal-content').classList.remove('form-success');
+                        }, 300);
+                    }, 1500);
+                } else {
+                    showMessage(`❌ Error: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showMessage(`❌ Network error: ${error.message}`, 'error');
+                // Restore button
+                const saveBtn = document.querySelector('#editForm .save-btn');
+                saveBtn.innerHTML = '💾 Save Changes';
+                saveBtn.disabled = false;
+            }
+        });
+        
+        // Image Modal Functions (unchanged from previous version)
         function openImageModal(productId, field, imageUrl) {
             currentProductId = productId;
             currentImageField = field;
@@ -848,7 +2373,7 @@
                 if (result.success) {
                     showMessage('✅ Image saved successfully!', 'success');
                     
-                    // Update the allProducts array
+                    // Update the product in allProducts array
                     const productIndex = allProducts.findIndex(p => p.id == currentProductId);
                     if (productIndex !== -1) {
                         allProducts[productIndex].image = imageUrl;
@@ -895,18 +2420,24 @@
             }, 3000);
         }
         
-        // Close modal when clicking outside
+        // Close modals when clicking outside
         window.onclick = function(event) {
-            const modal = document.getElementById('imageUploadModal');
-            if (event.target === modal) {
+            const imageModal = document.getElementById('imageUploadModal');
+            const editModal = document.getElementById('editFieldModal');
+            
+            if (event.target === imageModal) {
                 closeImageModal();
+            }
+            if (event.target === editModal) {
+                closeEditFieldModal();
             }
         };
         
-        // Close modal with Escape key
+        // Close modals with Escape key
         document.addEventListener('keydown', function(event) {
             if (event.key === 'Escape') {
                 closeImageModal();
+                closeEditFieldModal();
             }
         });
     </script>

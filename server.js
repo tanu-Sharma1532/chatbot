@@ -3463,6 +3463,64 @@ app.get('/debug/products', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+// Add enhanced products endpoint with category and seller names
+
+// Add enhanced products endpoint with category and seller names
+app.get('/api/productsenhanced', async (req, res) => {
+  try {
+    // Get all necessary data
+    const products = await db.getCachedData('products');
+    const categories = await db.getCachedData('categories');
+    const sellers = await db.getCachedData('sellers');
+    
+    // Create lookup maps
+    const categoryMap = {};
+    categories.forEach(cat => {
+      categoryMap[cat.id] = cat.name;
+    });
+    
+    const sellerMap = {};
+    sellers.forEach(seller => {
+      sellerMap[seller.user_id] = seller.store_name;
+    });
+    
+    // Enhance products with names
+    const enhancedProducts = products.map(product => {
+      const enhanced = {
+        ...product,
+        // Add category names
+        category_name: categoryMap[product.category_id] || '',
+        cat1_name: categoryMap[product.cat1] || '',
+        // Add seller name
+        seller_name: sellerMap[product.seller_id] || '',
+        // Format price for display
+        formatted_price: product.retail_simple_price ? 
+          `₹${parseFloat(product.retail_simple_price).toFixed(2)}` : '',
+        formatted_special_price: product.retail_simple_special_price ? 
+          `₹${parseFloat(product.retail_simple_special_price).toFixed(2)}` : '',
+        // Calculate discount percentage
+        discount_percent: product.retail_simple_price && product.retail_simple_special_price ?
+          Math.round(((product.retail_simple_price - product.retail_simple_special_price) / product.retail_simple_price) * 100) : 0
+      };
+      
+      return enhanced;
+    });
+    
+    res.json({
+      success: true,
+      data: enhancedProducts,
+      categories: categories,
+      sellers: sellers,
+      count: enhancedProducts.length
+    });
+  } catch (error) {
+    console.error('❌ Error fetching enhanced products:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
 
 app.get('/', (req, res) => {
   res.json({ 
