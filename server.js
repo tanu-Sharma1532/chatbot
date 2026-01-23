@@ -648,19 +648,20 @@ async function appendUnderColumn(headerName, text) {
 // ZULU CLUB INFORMATION
 // -------------------------
 const ZULU_CLUB_INFO = `
-Zulu Club is a hyperlocal lifestyle shopping app designed to deliver curated products ASAP.
-Its tagline is: "A shopping app, delivering ASAP. Lifestyle upgrades, specially curated for you."
-Users discover products through short videos from nearby stores, popups, markets, and sellers.
-They can directly call or WhatsApp chat with sellers and purchase locally available lifestyle products.
-Zulu Club also offers curated selections on its app homepage, sourced from Zulu showrooms and partner stores,
-with delivery typically completed within 100 minutes. Try-at-home and instant returns are supported.
+Zulu Club is a lifestyle shopping app that delivers fashion, home decor, furniture & more in 100 mins or less.
+Its tagline is: "Lifestyle upgrades, delivered ASAP’. It curates an assortment basis hyprlocal taste & life style choices & offers it to you on our app as well as our showrooms near you."
+Users can discover & shop products on app & get delivery asap in 100 mins or less or they can visit any Zulu stores or , popups in markets near them. 
+They can also watch videos of lifestyle outlets near them & call or WhatsApp chat directly with them without any middlemen.
+The video watch tells us simply what consumers love and we find and locate those best sellers in our app. 
 The platform operates primarily in Gurgaon, especially along Golf Course Extension Road.
-Zulu runs the Zulu Club Experience Store at Shop 9, M3M Urbana Premium, Sector 67, Gurgaon,
-and pop-ups at M3M Urbana Market, AIPL Joy Street Market, and AIPL Joy Central Market.
-Core categories include Home Decor, Fashion, Kids, Footwear, Accessories,
-Lifestyle Gifting, and Beauty & Self-Care.
-Zulu Club blends AI-driven insights with human curation to personalize product discovery,
-optimize showroom assortments, and decide popup placements at a micro-market level.
+Zulu runs the Zulu Club Experience Store at Shop 9, M3M Urbana Premium, Sector 67, Gurgaon as well in Sec 63, right next to Worldmark in Tyagi Market, near Auto Nation. We also conduct popups in markets near you. 
+Core categories include 
+Home Decor 
+Fashion
+Furniture
+Footwear
+Accessories
+Lifestyle Gifting & Beauty & Self-Care.
 Explore at https://zulu.club or via the Zulu Club apps on iOS and Android.
 `;
 
@@ -673,22 +674,19 @@ Registered address: D20, 301, Ireo Victory Valley, Sector 67, Gurugram, Haryana 
 Zulu operates a hyperlocal lifestyle commerce model combining video discovery,
 AI-powered curation, and fast local delivery.
 Operations are concentrated along Golf Course Extension Road, Gurgaon.
-Early traction includes 2,000+ customers, 5,000+ interactions,
+Early traction includes 2,000+ customers, 8,000+ interactions,
 4 markets, 20 societies, and a 20 sq km operating radius.
 `;
 
 const SELLER_KNOWLEDGE = `
-Zulu Club follows an open and inclusive seller model.
-Sellers can be brands, retail outlets, factories, online sellers,
-D2C founders, or individual peer-to-peer sellers.
-Anyone can onboard by creating a store directly from the consumer app,
-uploading basic details and videos, and submitting for approval,
-which typically takes only minutes.
-There is no paperwork, no catalog Excel upload, and no intermediaries.
-Seller visibility is driven by content quality:
-more videos increase discovery, and well-explained videos improve conversions.
-High-performing products may be curated for bulk buying,
-placement in Zulu showrooms, homepage visibility, or popup features.
+Zulu Club can help you reach premium consumers in your region. 
+We work directly with brands, outlets, factories as well as boutiques. 
+We can take you live in 100 Mins and you can start showcasing your catalog on Zulu and get direct leads from premium consumers. They can call or whatsapp with you directly with zero commission & zero middlemen. 
+We can even place your best sellers in any of our outlets in Gurgaon & help your brand get the right visibility it needs.
+So go ahead, and reach out to uur representative to help your go live on Zulu. 
+ 
+No paperwork, no catalog, no complexity, it just takes a few videos and you are live. 
+High-performing products may be curated for bulk buying across partner stores.
 `;
 
 // -------------------------
@@ -1701,90 +1699,240 @@ function urlEncodeType2(t) {
 }
 
 // Add this function after the findSellersForQuery function
-
-// Update the searchProductsForQuery function to prioritize tags
-function searchProductsForQuery(userMessage) {
+async function searchProductsForQuery(userMessage) {
   if (!userMessage || !productsData.length) {
     console.log('No user message or products data available');
     return [];
   }
   
-  console.log(`Searching products for: "${userMessage}"`);
-  console.log(`Total products in database: ${productsData.length}`);
+  console.log(`🔍 Searching products for: "${userMessage}"`);
+  console.log(`📊 Total products in database: ${productsData.length}`);
   
-  // Debug: Check first product's structure
-  if (productsData.length > 0) {
-    console.log('First product in database:', {
-      id: productsData[0].id,
-      name: productsData[0].name,
-      price: productsData[0].price, // ✅ price check करें
-      image: productsData[0].image,
-      hasSpecialPrice: 'price' in productsData[0],
-      allKeys: Object.keys(productsData[0]) // ✅ सभी keys देखें
-    });
+  try {
+    // FIRST: Use GPT to understand the query meaning and find products
+    console.log('🤖 Using GPT to understand query meaning...');
+    const gptMatches = await gptMatchProducts(userMessage);
+    
+    if (gptMatches && gptMatches.length > 0) {
+      console.log(`✅ GPT found ${gptMatches.length} semantic matches`);
+      
+      // Also do keyword matching as backup
+      const keywordMatches = await getKeywordMatches(userMessage);
+      
+      // Combine and deduplicate results (GPT matches first)
+      const allMatches = [...gptMatches];
+      const gptIds = new Set(gptMatches.map(p => p.id));
+      
+      // Add keyword matches that aren't already in GPT results
+      keywordMatches.forEach(match => {
+        if (!gptIds.has(match.id)) {
+          allMatches.push(match);
+        }
+      });
+      
+      return allMatches.slice(0, 5);
+    }
+    
+    // If GPT fails, fallback to keyword matching
+    console.log('⚠️ GPT failed, using keyword matching...');
+    return await getKeywordMatches(userMessage);
+    
+  } catch (error) {
+    console.error('❌ Error in searchProductsForQuery:', error);
+    return await getKeywordMatches(userMessage);
   }
-  
+}
+
+// Helper function for keyword matching
+async function getKeywordMatches(userMessage) {
   const searchTerms = userMessage
     .toLowerCase()
     .split(/\s+/)
     .filter(term => term.length > 1);
   
-  console.log('Search terms:', searchTerms);
-  
   if (searchTerms.length === 0) return [];
   
-  const matches = [];
+  const keywordMatches = [];
+  const exactMatches = [];
   
-  // Search in products
   productsData.forEach((product) => {
     if (!product || !product.name) return;
     
     const productName = product.name.toLowerCase();
+    const productTags = product.tagsArray || [];
+    
     let score = 0;
     let matchedFields = [];
     
     // Check each search term
     searchTerms.forEach(term => {
+      // Check in name
       if (productName.includes(term)) {
         score += 0.7;
         matchedFields.push('name');
       }
+      
+      // Check in tags
+      if (productTags.some(tag => tag.includes(term))) {
+        score += 0.5;
+        matchedFields.push('tags');
+      }
     });
     
-    // If score is high enough, add to matches
+    // Also check if any tag contains the entire query
+    const queryLower = userMessage.toLowerCase();
+    if (productTags.some(tag => tag.includes(queryLower))) {
+      score += 1.0;
+      matchedFields.push('tags_full_query');
+    }
+    
     if (score > 0.4) {
-      // ✅ CORRECT: price और image दोनों pass करें
       const match = {
         id: product.id,
         name: product.name,
-        price: product.price || null, // ✅ price pass करें
+        price: product.price || null,
         image: product.image || null,
         tagsArray: product.tagsArray || [],
         score: score,
-        matchedFields: matchedFields
+        matchedFields: matchedFields,
+        raw: product
       };
       
-      // Debug log
-      console.log(`Matched: ${product.name}, price: ${product.price}`);
+      keywordMatches.push(match);
       
-      matches.push(match);
+      if (score > 1.0 || matchedFields.includes('tags_full_query')) {
+        exactMatches.push(match);
+      }
     }
   });
   
-  console.log(`Found ${matches.length} product matches`);
-  
-  // Debug: Check first few matches
-  if (matches.length > 0) {
-    console.log('First 3 matches with price:');
-    matches.slice(0, 3).forEach((m, i) => {
-      console.log(`${i+1}. ${m.name}: price = ${m.price}, type = ${typeof m.price}`);
-    });
+  if (exactMatches.length > 0) {
+    console.log(`✅ Found ${exactMatches.length} exact tag matches`);
+    return exactMatches.sort((a, b) => b.score - a.score).slice(0, 5);
   }
   
-  // Sort by score and return top 5
-  return matches
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 5);
+  if (keywordMatches.length > 0) {
+    console.log(`✅ Found ${keywordMatches.length} keyword matches`);
+    return keywordMatches.sort((a, b) => b.score - a.score).slice(0, 5);
+  }
+  
+  return [];
+}
+
+// Improved GPT matching with better semantic understanding
+async function gptMatchProducts(userMessage) {
+  if (!openai || !process.env.OPENAI_API_KEY) {
+    console.log('⚠️ OpenAI not configured');
+    return [];
+  }
+  
+  try {
+    // Prepare comprehensive product data for GPT
+    const productsForGpt = productsData.slice(0, 200).map(product => ({
+      id: product.id,
+      name: product.name || '',
+      tags: product.tagsArray || [],
+      price: product.price || 0,
+      category_hints: product.tagsArray ? product.tagsArray.join(', ') : ''
+    }));
+    
+    const prompt = `
+USER QUERY: "${userMessage}"
+
+TASK: Find products that match the USER'S INTENT and MEANING, not just keywords.
+
+THINK STEP BY STEP:
+1. Understand what the user REALLY wants:
+   - Are they looking for a specific item type?
+   - What features/attributes are they mentioning?
+   - What's the context or use case?
+
+2. Match based on SEMANTIC MEANING:
+   - "handbag" = purse, tote, clutch, shoulder bag
+   - "blue shirt" = any shirt that's blue (not just exact words)
+   - "party wear" = festive, glittery, elegant, evening wear
+   - "comfy shoes" = slippers, sneakers, flats
+   - "home decor" = vases, lamps, showpieces, paintings
+
+3. Use product TAGS as descriptors:
+   - Tags describe color, style, occasion, material, etc.
+   - Match the user's intent to relevant tags
+
+4. Consider synonyms and related terms:
+   - "sofa" = couch, settee
+   - "tshirt" = t-shirt, tee, top
+   - "makeup" = cosmetics, beauty products
+
+AVAILABLE PRODUCTS (first 200):
+${JSON.stringify(productsForGpt, null, 2)}
+
+RETURN TOP 5 MATCHES as JSON:
+{
+  "query_interpretation": "Brief explanation of what the user wants",
+  "matched_products": [
+    {
+      "id": "product-id",
+      "match_reason": "Why this matches the user's intent semantically",
+      "confidence": 0.95
+    }
+  ]
+}
+    `;
+    
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o",  // Using GPT-4 for better understanding
+      messages: [
+        { 
+          role: "system", 
+          content: `You are a product search expert. Understand the user's REAL intent and match products semantically, not just by keywords.
+          Consider synonyms, context, and product attributes. Focus on what the user MEANS, not just what they SAY.` 
+        },
+        { role: "user", content: prompt }
+      ],
+      max_tokens: 1000,
+      temperature: 0.2
+    });
+    
+    const content = completion.choices[0].message.content.trim();
+    
+    try {
+      const parsed = JSON.parse(content);
+      
+      console.log(`🤖 GPT Query Interpretation: "${parsed.query_interpretation}"`);
+      
+      const matches = parsed.matched_products || [];
+      
+      // Convert to product format
+      const matchedProducts = matches
+        .map(gptMatch => {
+          const product = productsData.find(p => p.id === gptMatch.id);
+          if (!product) return null;
+          
+          return {
+            id: product.id,
+            name: product.name,
+            price: product.price || null,
+            image: product.image || null,
+            tagsArray: product.tagsArray || [],
+            score: gptMatch.confidence || 0.5,
+            matchedFields: ['gpt_semantic'],
+            gpt_reason: gptMatch.match_reason || '',
+            query_interpretation: parsed.query_interpretation
+          };
+        })
+        .filter(Boolean);
+      
+      return matchedProducts.slice(0, 5);
+      
+    } catch (parseError) {
+      console.error('❌ Error parsing GPT response:', parseError, 'Raw:', content.substring(0, 200));
+      return [];
+    }
+    
+  } catch (error) {
+    console.error('❌ GPT product matching error:', error);
+    return [];
+  }
 }
 // Replace the existing buildConciseResponse function with this updated version:
 
@@ -1860,7 +2008,9 @@ function buildConciseResponse(userMessage, galleryMatches = [], sellersObj = {},
       price: priceDisplay,
       image: imageUrl,
       link: productLink,
-      score: product.score || 0
+      score: product.score || 0,
+      matchedVia: product.matchedFields || [],
+      gptReason: product.gpt_reason || ''  // Add this line
     };
   });
   
@@ -2570,8 +2720,8 @@ if (intent === 'product' && galleriesData.length > 0) {
   const sellers = await findSellersForQuery(userMessage, matchedCategories, detectedGender);
   
   // Search for products based on user query
-  const products = searchProductsForQuery(userMessage);
-  
+  const products = await searchProductsForQuery(userMessage); // ✅ Add "await" here!
+
   return buildConciseResponse(userMessage, matchedCategories, sellers, products);
 }
     
