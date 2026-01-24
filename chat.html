@@ -769,6 +769,7 @@
             background: #1c262a;
             transition: all 0.3s ease;
             border: 1px solid #2d3746;
+            cursor: pointer;
         }
 
         .gallery-item:hover {
@@ -783,7 +784,6 @@
             width: 100%;
             overflow: hidden;
             background: #171f22;
-            cursor: pointer;
         }
 
         /* Default for landscape (16:9) */
@@ -1072,6 +1072,7 @@
             transition: all 0.3s ease;
             position: relative;
             scroll-snap-align: start;
+            cursor: pointer;
         }
 
         .slider-item:hover {
@@ -1448,25 +1449,10 @@
             max-height: 100px;
         }
 
-        /* Link styles in slider */
+        /* Link styles in slider - REMOVED */
         .slider-link,
         .seller-link {
-            display: inline-block;
-            color: #ffffff;
-            text-decoration: none;
-            font-size: 12px;
-            margin-top: 6px;
-            padding: 4px 8px;
-            background: rgba(0, 132, 255, 0.1);
-            border-radius: 6px;
-            transition: all 0.3s;
-            font-family: 'Poppins', sans-serif;
-        }
-
-        .slider-link:hover,
-        .seller-link:hover {
-            background: rgba(0, 132, 255, 0.2);
-            text-decoration: none;
+            display: none;
         }
     </style>
     <!-- Font Awesome -->
@@ -1754,30 +1740,30 @@
         }
 
         // Update UI based on authentication status
-function updateUI() {
-    if (isAuthenticated) {
-        // ✅ SHOW banner only when verified
-        statusBanner.style.display = 'flex';
-        statusBanner.className = 'status-banner verified';
-        statusMessage.innerHTML = '✅ Verified • Full Access to All Features';
+        function updateUI() {
+            if (isAuthenticated) {
+                // ✅ SHOW banner only when verified
+                statusBanner.style.display = 'flex';
+                statusBanner.className = 'status-banner verified';
+                statusMessage.innerHTML = '✅ Verified • Full Access to All Features';
 
-        profileName.innerHTML = 'ZULU ASSISTANT <span class="verified-badge">Verified</span>';
-        verifyBtn.style.display = 'none';
-        logoutBtn.classList.remove('hidden');
-    } else {
-        // ❌ HIDE banner completely
-        statusBanner.style.display = 'none';
-        statusMessage.innerHTML = '';
+                profileName.innerHTML = 'ZULU ASSISTANT <span class="verified-badge">Verified</span>';
+                verifyBtn.style.display = 'none';
+                logoutBtn.classList.remove('hidden');
+            } else {
+                // ❌ HIDE banner completely
+                statusBanner.style.display = 'none';
+                statusMessage.innerHTML = '';
 
-        profileName.textContent = 'ZULU ASSISTANT';
-        verifyBtn.style.display = 'flex';
-        logoutBtn.classList.add('hidden');
-    }
+                profileName.textContent = 'ZULU ASSISTANT';
+                verifyBtn.style.display = 'flex';
+                logoutBtn.classList.add('hidden');
+            }
 
-    messageInput.disabled = false;
-    messageInput.placeholder = 'Type your message...';
-    sendBtn.disabled = !messageInput.value.trim();
-}
+            messageInput.disabled = false;
+            messageInput.placeholder = 'Type your message...';
+            sendBtn.disabled = !messageInput.value.trim();
+        }
 
         // Show verification modal
         function showVerificationModal() {
@@ -2494,7 +2480,7 @@ Try asking: "Tell me about Zulu Club" or "Show me home decor items"`;
                         
                         const imageId = currentGalleryImages.length - 1;
                         const galleryHtml = `
-                            <div class="gallery-item">
+                            <div class="gallery-item" data-image-id="${imageId}">
                                 <div class="image-container loading" data-image-id="${imageId}">
                                     <div class="image-loading"></div>
                                     <img src="${imageUrl}" 
@@ -2508,7 +2494,6 @@ Try asking: "Tell me about Zulu Club" or "Show me home decor items"`;
                                 <div class="image-info">
                                     <div class="image-title">${title}</div>
                                     ${description ? `<div class="image-description">${description}</div>` : ''}
-                                    ${linkUrl ? `<a href="${linkUrl}" target="_blank" style="color: #0084ff; font-size: 11px; margin-top: 4px; display: block;">View Product</a>` : ''}
                                 </div>
                             </div>
                         `;
@@ -2644,14 +2629,27 @@ Try asking: "Tell me about Zulu Club" or "Show me home decor items"`;
             
             // Add event listeners for images after they're added to DOM
             setTimeout(() => {
-                const images = contentDiv.querySelectorAll('.gallery-image, .single-image');
-                images.forEach(img => {
-                    img.addEventListener('click', (e) => {
-                        const imageId = parseInt(e.target.getAttribute('data-image-id'));
-                        if (!isNaN(imageId) && currentGalleryImages[imageId]) {
-                            showImageInModal(imageId);
-                        }
-                    });
+                const images = contentDiv.querySelectorAll('.gallery-image, .single-image, .gallery-item');
+                images.forEach(item => {
+                    if (item.classList.contains('gallery-item')) {
+                        // Whole gallery box is clickable
+                        item.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const imageId = parseInt(item.getAttribute('data-image-id'));
+                            if (!isNaN(imageId) && currentGalleryImages[imageId]) {
+                                showImageInModal(imageId);
+                            }
+                        });
+                    } else {
+                        // Individual images (single images)
+                        item.addEventListener('click', (e) => {
+                            const imageId = parseInt(item.getAttribute('data-image-id'));
+                            if (!isNaN(imageId) && currentGalleryImages[imageId]) {
+                                showImageInModal(imageId);
+                            }
+                        });
+                    }
                 });
             }, 100);
             
@@ -2739,8 +2737,9 @@ Try asking: "Tell me about Zulu Club" or "Show me home decor items"`;
                 
                 structuredData.galleries.forEach((gallery, index) => {
                     const galleryImage = gallery.image || '';
+                    const galleryLink = gallery.link || '#';
                     htmlContent += `
-                        <div class="slider-item gallery-item">
+                        <div class="slider-item gallery-item" onclick="window.open('${galleryLink}', '_blank')">
                             <div class="slider-image-container">
                                 <img src="${galleryImage}" 
                                      alt="${gallery.name}" 
@@ -2749,7 +2748,6 @@ Try asking: "Tell me about Zulu Club" or "Show me home decor items"`;
                             </div>
                             <div class="slider-info">
                                 <div class="slider-title">${gallery.name}</div>
-                                ${gallery.link ? `<a href="${gallery.link}" target="_blank" class="slider-link">View Gallery</a>` : ''}
                             </div>
                         </div>
                     `;
@@ -2775,10 +2773,10 @@ Try asking: "Tell me about Zulu Club" or "Show me home decor items"`;
                 htmlContent += `<div class="sellers-list">`;
                 
                 structuredData.sellers.forEach((seller, index) => {
+                    const sellerLink = seller.link || '#';
                     htmlContent += `
-                        <div class="seller-item">
+                        <div class="seller-item" onclick="window.open('${sellerLink}', '_blank')">
                             <div class="seller-name">${seller.name}</div>
-                            ${seller.link ? `<a href="${seller.link}" target="_blank" class="seller-link">View Seller Profile</a>` : ''}
                         </div>
                     `;
                 });

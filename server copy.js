@@ -8,16 +8,20 @@ const preIntentFilter = require('./preintentfilter');
 const { google } = require('googleapis'); 
 const app = express();
 const crypto = require('crypto');
+const fs = require('fs'); 
 const path = require('path');
+const { v4: uuidv4 } = require('uuid');
 
+const CACHE_DIR = path.join(__dirname, 'public', 'ai-cache');
+if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
 
 // Import database functions
 let db;
 try {
   db = require('./requestData');
-  console.log('✅ Database module loaded successfully');
+  console.log('Database module loaded successfully');
 } catch (error) {
-  console.error('❌ Failed to load requestData.js:', error);
+  console.error('Failed to load requestData.js:', error);
   db = {
     getCachedData: async (type) => {
       console.log(`Fallback: getCachedData for ${type}`);
@@ -42,25 +46,20 @@ try {
     }
   };
 }
-// Load admin users (you'll need to create this file)
 let adminUsers = [];
 try {
   adminUsers = require('./adminUser.json');
-  console.log(`✅ Loaded ${adminUsers.length} admin users`);
 } catch (error) {
-  console.log('⚠️ No adminUser.json found, using empty array');
   adminUsers = [];
 }
 
-// Employee numbers (without country code prefix for matching)
 const EMPLOYEE_NUMBERS = [
-  "8368127760",  // 8368127760
-  "9717350080",  // 9717350080
-  "8860924190",  // 8860924190
-  "7483654620"   // 7483654620
+  "8368127760",  
+  "9717350080",  
+  "8860924190",  
+  "7483654620" 
 ];
 
-// OTP Store - store OTPs temporarily
 const otpStore = new Map();
 
 // Middleware
@@ -73,18 +72,11 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || ''
 });
 
-// -------------------------
-// PERSISTED DATA: conversations, csvs
-// -------------------------
-let verifiedUsers = {}; // Add this line
+let verifiedUsers = {};
 let conversations = {}; 
 let galleriesData = [];
 let sellersData = []; 
 let productsData = []; 
-
-// -------------------------
-// OTP Authentication Functions
-// -------------------------
 
 /**
  * Sends an OTP to the provided phone number
@@ -275,7 +267,7 @@ const verifyOtp = async (phoneNumberWithSuffix, otp) => {
         otpStore.delete(phoneNumberWithSuffix);
         otpStore.delete(basePhone);
 
-        console.log(`✅ User ${phoneNumberWithSuffix} verified successfully (dev mode). Admin: ${verifiedUsers[phoneNumberWithSuffix].isAdmin}`);
+        console.log(`User ${phoneNumberWithSuffix} verified successfully (dev mode). Admin: ${verifiedUsers[phoneNumberWithSuffix].isAdmin}`);
         
         return {
           error: false,
@@ -290,7 +282,6 @@ const verifyOtp = async (phoneNumberWithSuffix, otp) => {
       }
     }
 
-    // Real API verification with ZuluShop (use base phone only)
     const formData = new URLSearchParams();
     formData.append('mobile', basePhone);
     formData.append('otp', otp);
@@ -304,7 +295,7 @@ const verifyOtp = async (phoneNumberWithSuffix, otp) => {
         headers: { 
           'Content-Type': 'application/x-www-form-urlencoded' 
         },
-        timeout: 10000 // 10 second timeout
+        timeout: 10000 
       }
     );
 
@@ -315,10 +306,7 @@ const verifyOtp = async (phoneNumberWithSuffix, otp) => {
       throw new Error(data.message || 'OTP verification failed');
     }
 
-    // Check if this number is in admin JSON
     const isAdmin = adminUsers.some(user => user.mobile === basePhone);
-
-    // Mark user as verified with full phone (including suffix)
     verifiedUsers[phoneNumberWithSuffix] = {
       verified: true,
       isAdmin: isAdmin,
@@ -332,7 +320,7 @@ const verifyOtp = async (phoneNumberWithSuffix, otp) => {
     otpStore.delete(phoneNumberWithSuffix);
     otpStore.delete(basePhone);
 
-    console.log(`✅ User ${phoneNumberWithSuffix} verified successfully via API. Admin: ${isAdmin}`);
+    console.log(`User ${phoneNumberWithSuffix} verified successfully via API. Admin: ${isAdmin}`);
     
     return {
       error: false,
@@ -347,18 +335,14 @@ const verifyOtp = async (phoneNumberWithSuffix, otp) => {
   } catch (error) {
     console.error('Error verifying OTP:', error);
     
-    // For development/testing if API fails
     if (error.code === 'ECONNREFUSED' || error.response?.status >= 500) {
       console.log('⚠️ API unavailable, checking against development OTP');
       
-      // Parse phone number and suffix
       const { basePhone, suffix } = parsePhoneNumberWithSuffix(phoneNumberWithSuffix);
       
-      // Try to get stored OTP
       let stored = otpStore.get(phoneNumberWithSuffix) || otpStore.get(basePhone);
       
       if (stored && stored.isDevMode && stored.otp === otp) {
-        // Mark user as verified with full phone (including suffix)
         verifiedUsers[phoneNumberWithSuffix] = {
           verified: true,
           isAdmin: adminUsers.some(user => user.mobile === basePhone),
@@ -367,11 +351,10 @@ const verifyOtp = async (phoneNumberWithSuffix, otp) => {
           basePhone: basePhone
         };
 
-        // Clear OTP from store
         otpStore.delete(phoneNumberWithSuffix);
         otpStore.delete(basePhone);
 
-        console.log(`✅ User ${phoneNumberWithSuffix} verified successfully (dev fallback). Admin: ${verifiedUsers[phoneNumberWithSuffix].isAdmin}`);
+        console.log(`User ${phoneNumberWithSuffix} verified successfully (dev fallback). Admin: ${verifiedUsers[phoneNumberWithSuffix].isAdmin}`);
         
         return {
           error: false,
@@ -475,20 +458,20 @@ const checkAuthentication = (req, res, next) => {
     if (!session) {
       // If it's a guest session and doesn't exist, create it
       if (sessionId.startsWith('guest-')) {
-        console.log(`🔄 Guest session ${sessionId} not found, creating new one`);
+        console.log(`Guest session ${sessionId} not found, creating new one`);
         createOrTouchSession(sessionId, false);
         req.sessionId = sessionId;
         req.isAuthenticated = false;
         next();
       } else {
-        console.log(`❌ Session ${sessionId} not found in conversations`);
+        console.log(`Session ${sessionId} not found in conversations`);
         return res.status(400).json({
           success: false,
           error: 'Invalid session'
         });
       }
     } else {
-      console.log(`✅ Session ${sessionId} found, authenticated: ${session.isAuthenticated || false}`);
+      console.log(`Session ${sessionId} found, authenticated: ${session.isAuthenticated || false}`);
       req.sessionId = sessionId;
       req.isAuthenticated = session.isAuthenticated || false;
       next();
@@ -523,7 +506,7 @@ async function getSheets() {
     await jwt.authorize();
     return google.sheets({ version: 'v4', auth: jwt });
   } catch (e) {
-    console.error('❌ Error initializing Google Sheets client:', e);
+    console.error('Error initializing Google Sheets client:', e);
     return null;
   }
 }
@@ -551,7 +534,7 @@ async function writeCell(colNum, rowNum, value) {
       requestBody: { values: [[value]] }
     });
   } catch (e) {
-    console.error('❌ writeCell error', e);
+    console.error('writeCell error', e);
   }
 }
 
@@ -635,32 +618,28 @@ async function appendUnderColumn(headerName, text) {
     console.log(`📝 Prepended message to column "${headerName}" (${ts})`);
     
   } catch (e) {
-    console.error('❌ appendUnderColumn error', e);
+    console.error('appendUnderColumn error', e);
   }
 }
-
-// -------------------------
-// Helper function to parse India time for display
-// -------------------------
-
 
 // -------------------------
 // ZULU CLUB INFORMATION
 // -------------------------
 const ZULU_CLUB_INFO = `
-Zulu Club is a hyperlocal lifestyle shopping app designed to deliver curated products ASAP.
-Its tagline is: "A shopping app, delivering ASAP. Lifestyle upgrades, specially curated for you."
-Users discover products through short videos from nearby stores, popups, markets, and sellers.
-They can directly call or WhatsApp chat with sellers and purchase locally available lifestyle products.
-Zulu Club also offers curated selections on its app homepage, sourced from Zulu showrooms and partner stores,
-with delivery typically completed within 100 minutes. Try-at-home and instant returns are supported.
+Zulu Club is a lifestyle shopping app that delivers fashion, home decor, furniture & more in 100 mins or less.
+Its tagline is: "Lifestyle upgrades, delivered ASAP’. It curates an assortment basis hyprlocal taste & life style choices & offers it to you on our app as well as our showrooms near you."
+Users can discover & shop products on app & get delivery asap in 100 mins or less or they can visit any Zulu stores or , popups in markets near them. 
+They can also watch videos of lifestyle outlets near them & call or WhatsApp chat directly with them without any middlemen.
+The video watch tells us simply what consumers love and we find and locate those best sellers in our app. 
 The platform operates primarily in Gurgaon, especially along Golf Course Extension Road.
-Zulu runs the Zulu Club Experience Store at Shop 9, M3M Urbana Premium, Sector 67, Gurgaon,
-and pop-ups at M3M Urbana Market, AIPL Joy Street Market, and AIPL Joy Central Market.
-Core categories include Home Decor, Fashion, Kids, Footwear, Accessories,
-Lifestyle Gifting, and Beauty & Self-Care.
-Zulu Club blends AI-driven insights with human curation to personalize product discovery,
-optimize showroom assortments, and decide popup placements at a micro-market level.
+Zulu runs the Zulu Club Experience Store at Shop 9, M3M Urbana Premium, Sector 67, Gurgaon as well in Sec 63, right next to Worldmark in Tyagi Market, near Auto Nation. We also conduct popups in markets near you. 
+Core categories include 
+Home Decor 
+Fashion
+Furniture
+Footwear
+Accessories
+Lifestyle Gifting & Beauty & Self-Care.
 Explore at https://zulu.club or via the Zulu Club apps on iOS and Android.
 `;
 
@@ -673,22 +652,19 @@ Registered address: D20, 301, Ireo Victory Valley, Sector 67, Gurugram, Haryana 
 Zulu operates a hyperlocal lifestyle commerce model combining video discovery,
 AI-powered curation, and fast local delivery.
 Operations are concentrated along Golf Course Extension Road, Gurgaon.
-Early traction includes 2,000+ customers, 5,000+ interactions,
+Early traction includes 2,000+ customers, 8,000+ interactions,
 4 markets, 20 societies, and a 20 sq km operating radius.
 `;
 
 const SELLER_KNOWLEDGE = `
-Zulu Club follows an open and inclusive seller model.
-Sellers can be brands, retail outlets, factories, online sellers,
-D2C founders, or individual peer-to-peer sellers.
-Anyone can onboard by creating a store directly from the consumer app,
-uploading basic details and videos, and submitting for approval,
-which typically takes only minutes.
-There is no paperwork, no catalog Excel upload, and no intermediaries.
-Seller visibility is driven by content quality:
-more videos increase discovery, and well-explained videos improve conversions.
-High-performing products may be curated for bulk buying,
-placement in Zulu showrooms, homepage visibility, or popup features.
+Zulu Club can help you reach premium consumers in your region. 
+We work directly with brands, outlets, factories as well as boutiques. 
+We can take you live in 100 Mins and you can start showcasing your catalog on Zulu and get direct leads from premium consumers. They can call or whatsapp with you directly with zero commission & zero middlemen. 
+We can even place your best sellers in any of our outlets in Gurgaon & help your brand get the right visibility it needs.
+So go ahead, and reach out to uur representative to help your go live on Zulu. 
+ 
+No paperwork, no catalog, no complexity, it just takes a few videos and you are live. 
+High-performing products may be curated for bulk buying across partner stores.
 `;
 
 // -------------------------
@@ -697,20 +673,17 @@ placement in Zulu showrooms, homepage visibility, or popup features.
 // Update the loadProductsData function with proper field mappings
 async function loadProductsData() {
   try {
-    console.log('📥 Loading products CSV data...');
+    console.log('Loading products CSV data...');
     const response = await axios.get('https://raw.githubusercontent.com/Rishi-Singhal-714/chatbot/main/products.csv', {
       timeout: 60000 
     });
-    
-    console.log('CSV file size:', response.data.length, 'characters');
-    console.log('First 200 chars of CSV:', response.data.substring(0, 200));
-    
+        
     return new Promise((resolve, reject) => {
       const results = [];
       let rowCount = 0;
       
       if (!response.data || response.data.trim().length === 0) {
-        console.log('❌ Empty products CSV received');
+        console.log('Empty products CSV received');
         resolve([]);
         return;
       }
@@ -720,13 +693,7 @@ async function loadProductsData() {
         .pipe(csv())
         .on('data', (data) => {
           rowCount++;
-          
-          // ✅ IMPORTANT: पहले 5 rows के fields देखें
-          if (rowCount <= 5) {
-            console.log(`Row ${rowCount} fields:`, Object.keys(data));
-            console.log(`Row ${rowCount} price value:`, data.price || data.specialPrice || data.price);
-          }
-          
+
           // Map CSV columns - try multiple variations
           const mappedData = {
             id: data.id || data.ID || data.product_id || '',
@@ -748,7 +715,6 @@ async function loadProductsData() {
               mappedData.tagsArray = [];
             }
             
-            // ✅ Process price - CSV में numbers हैं जैसे "4"
             if (mappedData.price) {
               const priceStr = String(mappedData.price).trim();
               if (priceStr) {
@@ -757,12 +723,10 @@ async function loadProductsData() {
                 if (cleaned && !isNaN(parseFloat(cleaned))) {
                   mappedData.price = parseFloat(cleaned);
                   if (rowCount <= 5) {
-                    console.log(`✅ Row ${rowCount}: Converted "${priceStr}" to ${mappedData.price}`);
                   }
                 } else {
                   mappedData.price = null;
                   if (rowCount <= 5) {
-                    console.log(`❌ Row ${rowCount}: Could not convert "${priceStr}" to number`);
                   }
                 }
               } else {
@@ -776,44 +740,31 @@ async function loadProductsData() {
           }
         })
         .on('end', () => {
-          console.log(`✅ Loaded ${results.length} products from ${rowCount} CSV rows`);
-          
-          // Sample check
-          if (results.length > 0) {
-            console.log('\n=== Checking first 5 products ===');
-            results.slice(0, 5).forEach((p, i) => {
-              console.log(`${i+1}. ${p.name.substring(0, 30)}...`);
-              console.log(`   ID: ${p.id}`);
-              console.log(`   Special Price: ${p.price} (${typeof p.price})`);
-              console.log(`   Image: ${p.image ? 'Yes' : 'No'}`);
-              console.log('');
-            });
-          }
-          
+          console.log(`Loaded ${results.length} products from ${rowCount} CSV rows`);
           resolve(results);
         })
         .on('error', (error) => {
-          console.error('❌ Error parsing products CSV:', error);
+          console.error('Error parsing products CSV:', error);
           reject(error);
         });
     });
   } catch (error) {
-    console.error('❌ Error loading products CSV:', error.message);
+    console.error('Error loading products CSV:', error.message);
     return [];
   }
 }
 
 async function loadGalleriesData() {
   try {
-    console.log('📥 Loading galleries CSV data...');
-    const response = await axios.get('https://raw.githubusercontent.com/Rishi-Singhal-714/chatbot/main/galleries.csv', {
+    console.log('Loading galleries CSV data...');
+    const response = await axios.get('https://raw.githubusercontent.com/Rishi-Singhal-714/chatbot/main/galleries3.csv', {
       timeout: 60000 
     });
     
     return new Promise((resolve, reject) => {
       const results = [];
       if (!response.data || response.data.trim().length === 0) {
-        console.log('❌ Empty CSV data received');
+        console.log('Empty CSV data received');
         resolve([]);
         return;
       }
@@ -859,46 +810,31 @@ async function loadGalleriesData() {
           }
         })
         .on('end', () => {
-          console.log(`✅ Loaded ${results.length} galleries from CSV`);
-          
-          // Debug: Show sample data
-          if (results.length > 0) {
-            console.log('\n=== First 3 gallery records ===');
-            results.slice(0, 3).forEach((g, i) => {
-              console.log(`${i+1}. Type2: ${g.type2}`);
-              console.log(`   Name: ${g.name}`);
-              console.log(`   Catname: ${g.catname}`);
-              console.log(`   Cat1name: ${g.cat1name}`);
-              console.log(`   Catname Array: ${JSON.stringify(g.catnameArray)}`);
-              console.log(`   Cat1name Array: ${JSON.stringify(g.cat1nameArray)}`);
-              console.log('');
-            });
-          }
-          
+          console.log(`Loaded ${results.length} galleries from CSV`);
           resolve(results);
         })
         .on('error', (error) => {
-          console.error('❌ Error parsing CSV:', error);
+          console.error('Error parsing CSV:', error);
           reject(error);
         });
     });
   } catch (error) {
-    console.error('❌ Error loading CSV data:', error.message);
+    console.error('Error loading CSV data:', error.message);
     return [];
   }
 }
 
 async function loadSellersData() {
   try {
-    console.log('📥 Loading sellers CSV data...');
-    const response = await axios.get('https://raw.githubusercontent.com/Rishi-Singhal-714/chatbot/main/sellers.csv', {
+    console.log('Loading sellers CSV data...');
+    const response = await axios.get('https://raw.githubusercontent.com/Rishi-Singhal-714/chatbot/main/sellers3.csv', {
       timeout: 60000
     });
     
     return new Promise((resolve, reject) => {
       const results = [];
       if (!response.data || response.data.trim().length === 0) {
-        console.log('❌ Empty sellers CSV received');
+        console.log('Empty sellers CSV received');
         resolve([]);
         return;
       }
@@ -921,16 +857,16 @@ async function loadSellersData() {
           }
         })
         .on('end', () => {
-          console.log(`✅ Loaded ${results.length} sellers from CSV`);
+          console.log(`Loaded ${results.length} sellers from CSV`);
           resolve(results);
         })
         .on('error', (error) => {
-          console.error('❌ Error parsing sellers CSV:', error);
+          console.error('Error parsing sellers CSV:', error);
           reject(error);
         });
     });
   } catch (error) {
-    console.error('❌ Error loading sellers CSV:', error.message);
+    console.error('Error loading sellers CSV:', error.message);
     return [];
   }
 }
@@ -1067,10 +1003,6 @@ async function createAgentTicket(mobileNumber, conversationHistory = []) {
     return generateTicketId();
   }
 }
-
-// [Keep all the matching helper functions exactly as they are...]
-// [findKeywordMatchesInCat1, matchSellersByStoreName, matchSellersByCategoryIds, etc.]
-// [These functions should remain exactly the same as in your original code]
 
 function normalizeToken(t) {
   if (!t) return '';
@@ -1700,91 +1632,800 @@ function urlEncodeType2(t) {
   return encodeURIComponent(t.trim().replace(/\s+/g, ' ')).replace(/%20/g, '%20');
 }
 
-// Add this function after the findSellersForQuery function
+// First, search products based on query with fuzzy matching
+async function searchProductsForQuery(userMessage) {
+  if (!userMessage || !productsData.length) return [];
+  
+  console.log(`🔍 Searching products for: "${userMessage}"`);
+  
+  // Step 1: Normalize query and create search tokens
+  const query = userMessage.toLowerCase();
+  
+  // Expand query with common variants
+  const queryVariants = expandQueryVariants(query);
+  
+  // Step 2: Score products based on multiple criteria
+  const scoredProducts = productsData.map(product => {
+    let score = 0;
+    let matchedFields = [];
+    let matchDetails = [];
+    
+    // A. NAME MATCHING (Highest weight)
+    if (product.name) {
+      const name = product.name.toLowerCase();
+      
+      // Exact match in name
+      if (name.includes(query)) {
+        score += 2.0;
+        matchedFields.push('name_exact');
+        matchDetails.push(`Exact match in name: "${product.name}"`);
+      }
+      
+      // Token matching in name
+      const queryTokens = query.split(/\s+/).filter(t => t.length > 2);
+      const nameTokens = name.split(/\s+/);
+      
+      let nameTokenMatches = 0;
+      queryTokens.forEach(qToken => {
+        nameTokens.forEach(nToken => {
+          if (smartSimilarity(qToken, nToken) > 0.85) {
+            nameTokenMatches++;
+          }
+        });
+      });
+      
+      if (nameTokenMatches > 0) {
+        score += (nameTokenMatches * 0.5);
+        matchedFields.push('name_tokens');
+        matchDetails.push(`${nameTokenMatches} token(s) matched in name`);
+      }
+      
+      // Check query variants
+      queryVariants.forEach(variant => {
+        if (name.includes(variant)) {
+          score += 0.7;
+          matchedFields.push('name_variant');
+          matchDetails.push(`Variant match: "${variant}" in name`);
+        }
+      });
+    }
+    
+    // B. TAGS MATCHING (Medium weight)
+    if (product.tagsArray && product.tagsArray.length > 0) {
+      // Check each tag
+      let tagMatches = 0;
+      let matchedTags = [];
+      
+      product.tagsArray.forEach(tag => {
+        // Check exact tag match
+        if (query.includes(tag)) {
+          tagMatches += 2;
+          matchedTags.push(tag);
+        }
+        
+        // Check tag contains query words
+        queryVariants.forEach(variant => {
+          if (tag.includes(variant)) {
+            tagMatches += 1;
+            matchedTags.push(`${tag} (${variant})`);
+          }
+        });
+        
+        // Fuzzy tag matching
+        query.split(/\s+/).forEach(qWord => {
+          if (qWord.length > 2 && smartSimilarity(qWord, tag) > 0.8) {
+            tagMatches += 0.5;
+            matchedTags.push(`${tag} ≈ ${qWord}`);
+          }
+        });
+      });
+      
+      if (tagMatches > 0) {
+        score += Math.min(tagMatches, 5); // Cap tag score at 5
+        matchedFields.push('tags');
+        matchDetails.push(`Matched tags: ${matchedTags.slice(0, 3).join(', ')}`);
+      }
+    }
+    
+    // C. PRICE/BRAND HINTS (if query contains price/brand indicators)
+    if (containsPriceOrBrand(query, product)) {
+      score += 0.5;
+      matchedFields.push('price_brand');
+    }
+    
+    return {
+      ...product,
+      score: score,
+      matchedFields: matchedFields,
+      matchDetails: matchDetails,
+      id: product.id || `product-${Date.now()}-${Math.random()}`
+    };
+  });
+  
+  // Step 3: Filter and sort
+  const filteredProducts = scoredProducts
+    .filter(p => p.score > 0.5) // Minimum threshold
+    .sort((a, b) => b.score - a.score);
+  
+  console.log(`✅ Found ${filteredProducts.length} product matches`);
+  
+  // Step 4: If few results, try broader matching
+  if (filteredProducts.length < 3) {
+    return getFallbackMatches(query);
+  }
+  
+  return filteredProducts.slice(0, 5);
+}
 
-// Update the searchProductsForQuery function to prioritize tags
-function searchProductsForQuery(userMessage) {
-  if (!userMessage || !productsData.length) {
-    console.log('No user message or products data available');
-    return [];
+// Helper: Expand query with common variants
+function expandQueryVariants(query) {
+  const variants = new Set();
+  const words = query.split(/\s+/).filter(w => w.length > 2);
+  
+  words.forEach(word => {
+    variants.add(word);
+    variants.add(singularize(word));
+    
+    // Common spelling variations
+    if (word.endsWith('s')) variants.add(word.slice(0, -1));
+    if (word.includes('ie')) variants.add(word.replace('ie', 'y'));
+    if (word.includes('y')) variants.add(word.replace('y', 'ie'));
+    
+    // Common product word expansions
+    const expansions = {
+      'tshirt': ['t-shirt', 'tee', 't shirt'],
+      't-shirt': ['tshirt', 'tee'],
+      'jeans': ['pant', 'trouser'],
+      'top': ['shirt', 'blouse'],
+      'dress': ['gown', 'frock'],
+      'shoes': ['footwear', 'sneakers'],
+      'bag': ['purse', 'handbag'],
+      'watch': ['wristwatch', 'timepiece'],
+      'furniture': ['furnishing', 'home decor'],
+      'decor': ['decoration', 'home decor']
+    };
+    
+    if (expansions[word]) {
+      expansions[word].forEach(v => variants.add(v));
+    }
+  });
+  
+  return Array.from(variants);
+}
+
+// Helper: Check for price/brand indicators
+function containsPriceOrBrand(query, product) {
+  const priceIndicators = ['rs', '₹', 'rupee', 'price', 'cost', 'under', 'above', 'discount'];
+  const hasPriceHint = priceIndicators.some(indicator => query.includes(indicator));
+  
+  if (!hasPriceHint) return false;
+  
+  // If query mentions price range, check if product price matches
+  const priceMatch = query.match(/(\d+)\s*(rs|₹|rupees?)/i);
+  if (priceMatch && product.price) {
+    const mentionedPrice = parseInt(priceMatch[1]);
+    const productPrice = parseFloat(product.price) || 0;
+    
+    if (productPrice > 0) {
+      // Check if product price is within 20% of mentioned price
+      const priceDiff = Math.abs(productPrice - mentionedPrice) / mentionedPrice;
+      return priceDiff <= 0.2;
+    }
   }
   
-  console.log(`Searching products for: "${userMessage}"`);
-  console.log(`Total products in database: ${productsData.length}`);
+  return false;
+}
+
+// Fallback matching for limited results
+function getFallbackMatches(query) {
+  console.log('🔄 Using fallback matching...');
   
-  // Debug: Check first product's structure
-  if (productsData.length > 0) {
-    console.log('First product in database:', {
-      id: productsData[0].id,
-      name: productsData[0].name,
-      price: productsData[0].price, // ✅ price check करें
-      image: productsData[0].image,
-      hasSpecialPrice: 'price' in productsData[0],
-      allKeys: Object.keys(productsData[0]) // ✅ सभी keys देखें
-    });
+  const fallbackMatches = [];
+  const queryWords = query.split(/\s+/).filter(w => w.length > 2);
+  
+  productsData.forEach(product => {
+    let score = 0;
+    
+    // Check name
+    if (product.name) {
+      const name = product.name.toLowerCase();
+      queryWords.forEach(qWord => {
+        if (name.includes(qWord)) score += 0.5;
+        else if (smartSimilarity(qWord, name) > 0.7) score += 0.3;
+      });
+    }
+    
+    // Check tags
+    if (product.tagsArray) {
+      queryWords.forEach(qWord => {
+        product.tagsArray.forEach(tag => {
+          if (tag.includes(qWord)) score += 0.3;
+        });
+      });
+    }
+    
+    if (score > 0.5) {
+      fallbackMatches.push({
+        ...product,
+        score: score,
+        matchedFields: ['fallback'],
+        matchDetails: ['Broad match based on keywords']
+      });
+    }
+  });
+  
+  return fallbackMatches
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5);
+}
+
+function matchGalleriesByStoreName(query, productMatches = []) {
+  if (!query || !galleriesData.length) return [];
+  
+  console.log('🔍 Matching galleries by store name...');
+  
+  // Extract store names from query
+  const potentialStoreNames = extractStoreNames(query);
+  const matchedGalleries = [];
+  
+  galleriesData.forEach(gallery => {
+    let score = 0;
+    let matchedFields = [];
+    
+    // Priority 1: Check type2 (often contains store name)
+    if (gallery.type2) {
+      const type2 = gallery.type2.toLowerCase();
+      
+      potentialStoreNames.forEach(storeName => {
+        if (type2.includes(storeName) || smartSimilarity(type2, storeName) > 0.85) {
+          score += 2.0;
+          matchedFields.push('store_name');
+        }
+      });
+    }
+    
+    // Priority 2: Check name field
+    if (gallery.name && score < 1) {
+      const name = gallery.name.toLowerCase();
+      
+      potentialStoreNames.forEach(storeName => {
+        if (name.includes(storeName)) {
+          score += 1.5;
+          matchedFields.push('gallery_name');
+        }
+      });
+    }
+    
+    // Priority 3: Check if gallery categories match product categories
+    if (productMatches.length > 0 && gallery.catnameArray) {
+      productMatches.forEach(product => {
+        if (product.tagsArray) {
+          const commonCategories = gallery.catnameArray.filter(cat =>
+            product.tagsArray.some(tag => 
+              smartSimilarity(cat, tag) > 0.7 || 
+              tag.includes(cat) || 
+              cat.includes(tag)
+            )
+          );
+          
+          if (commonCategories.length > 0) {
+            score += (commonCategories.length * 0.3);
+            matchedFields.push('category_match');
+          }
+        }
+      });
+    }
+    
+    if (score > 0.8) {
+      matchedGalleries.push({
+        ...gallery,
+        score: score,
+        matchedFields: matchedFields,
+        isStore: matchedFields.includes('store_name')
+      });
+    }
+  });
+  
+  return matchedGalleries
+    .sort((a, b) => {
+      // Prioritize store matches over category matches
+      if (a.isStore && !b.isStore) return -1;
+      if (!a.isStore && b.isStore) return 1;
+      return b.score - a.score;
+    })
+    .slice(0, 3);
+}
+
+// Extract potential store names from query
+function extractStoreNames(query) {
+  const storeIndicators = [
+    'store', 'shop', 'boutique', 'showroom', 'outlet', 'brand', 
+    'by', 'from', 'at', 'in', 'designer', 'collection'
+  ];
+  
+  const words = query.toLowerCase().split(/\s+/);
+  const storeNames = [];
+  let collectingName = false;
+  let currentName = [];
+  
+  words.forEach((word, index) => {
+    // Skip common words
+    if (['the', 'a', 'an', 'and', 'or', 'for'].includes(word)) return;
+    
+    // Check if this word indicates a store name might follow
+    if (storeIndicators.includes(word) || 
+        word.endsWith("'s") || 
+        word.includes('-')) {
+      collectingName = true;
+      return;
+    }
+    
+    // If collecting store name, add capitalized words
+    if (collectingName && word.length > 2 && /^[A-Z][a-z]*$/.test(word.charAt(0).toUpperCase() + word.slice(1))) {
+      currentName.push(word);
+    } else if (currentName.length > 0) {
+      storeNames.push(currentName.join(' '));
+      currentName = [];
+      collectingName = false;
+    }
+  });
+  
+  // Add any remaining name
+  if (currentName.length > 0) {
+    storeNames.push(currentName.join(' '));
   }
   
+  // Also check for known store patterns in query
+  const knownStores = ['zara', 'h&m', 'h&m', 'levi\'s', 'nike', 'adidas', 'puma', 'gucci', 'prada'];
+  knownStores.forEach(store => {
+    if (query.includes(store)) {
+      storeNames.push(store);
+    }
+  });
+  
+  return [...new Set(storeNames)];
+}
+
+// Helper function for keyword matching
+async function getKeywordMatches(userMessage) {
   const searchTerms = userMessage
     .toLowerCase()
     .split(/\s+/)
     .filter(term => term.length > 1);
   
-  console.log('Search terms:', searchTerms);
-  
   if (searchTerms.length === 0) return [];
   
-  const matches = [];
+  const keywordMatches = [];
+  const exactMatches = [];
   
-  // Search in products
   productsData.forEach((product) => {
     if (!product || !product.name) return;
     
     const productName = product.name.toLowerCase();
+    const productTags = product.tagsArray || [];
+    
     let score = 0;
     let matchedFields = [];
     
     // Check each search term
     searchTerms.forEach(term => {
+      // Check in name
       if (productName.includes(term)) {
         score += 0.7;
         matchedFields.push('name');
       }
+      
+      // Check in tags
+      if (productTags.some(tag => tag.includes(term))) {
+        score += 0.5;
+        matchedFields.push('tags');
+      }
     });
     
-    // If score is high enough, add to matches
+    // Also check if any tag contains the entire query
+    const queryLower = userMessage.toLowerCase();
+    if (productTags.some(tag => tag.includes(queryLower))) {
+      score += 1.0;
+      matchedFields.push('tags_full_query');
+    }
+    
     if (score > 0.4) {
-      // ✅ CORRECT: price और image दोनों pass करें
       const match = {
         id: product.id,
         name: product.name,
-        price: product.price || null, // ✅ price pass करें
+        price: product.price || null,
         image: product.image || null,
         tagsArray: product.tagsArray || [],
         score: score,
-        matchedFields: matchedFields
+        matchedFields: matchedFields,
+        raw: product
       };
       
-      // Debug log
-      console.log(`Matched: ${product.name}, price: ${product.price}`);
+      keywordMatches.push(match);
       
-      matches.push(match);
+      if (score > 1.0 || matchedFields.includes('tags_full_query')) {
+        exactMatches.push(match);
+      }
     }
   });
   
-  console.log(`Found ${matches.length} product matches`);
-  
-  // Debug: Check first few matches
-  if (matches.length > 0) {
-    console.log('First 3 matches with price:');
-    matches.slice(0, 3).forEach((m, i) => {
-      console.log(`${i+1}. ${m.name}: price = ${m.price}, type = ${typeof m.price}`);
-    });
+  if (exactMatches.length > 0) {
+    console.log(`Found ${exactMatches.length} exact tag matches`);
+    return exactMatches.sort((a, b) => b.score - a.score).slice(0, 5);
   }
   
-  // Sort by score and return top 5
-  return matches
+  if (keywordMatches.length > 0) {
+    console.log(`Found ${keywordMatches.length} keyword matches`);
+    return keywordMatches.sort((a, b) => b.score - a.score).slice(0, 5);
+  }
+  
+  return [];
+}
+// Improved GPT matching with better semantic understanding
+async function gptMatchProducts(userMessage) {
+  if (!openai || !process.env.OPENAI_API_KEY) {
+    console.log('OpenAI not configured');
+    return [];
+  }
+  
+  try {
+    // Prepare comprehensive product data for GPT
+    const productsForGpt = productsData.slice(0, 200).map(product => ({
+      id: product.id,
+      name: product.name || '',
+      tags: product.tagsArray || [],
+      price: product.price || 0,
+      category_hints: product.tagsArray ? product.tagsArray.join(', ') : ''
+    }));
+    
+    const prompt = `
+USER QUERY: "${userMessage}"
+
+TASK: Find products that match the USER'S INTENT and MEANING, not just keywords.
+1. Match based on SEMANTIC MEANING:
+2. Use product TAGS as descriptors:
+   - Tags describe color, style, occasion, material, etc.
+   - Match the user's intent to relevant tags
+3. Consider synonyms and related terms:
+
+AVAILABLE PRODUCTS (first 200):
+${JSON.stringify(productsForGpt, null, 2)}
+
+RETURN TOP 5 MATCHES as JSON:
+{
+  "query_interpretation": "Brief explanation of what the user wants",
+  "matched_products": [
+    {
+      "id": "product-id",
+      "match_reason": "Why this matches the user's intent semantically",
+      "confidence": 0.95
+    }
+  ]
+}
+    `;
+    
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4.1",  // Using GPT-4 for better understanding
+      messages: [
+        { 
+          role: "system", 
+          content: `You are a product search expert. Understand the user's REAL intent and match products semantically, not just by keywords.
+          Consider synonyms, context, and product attributes. Focus on what the user MEANS, not just what they SAY.` 
+        },
+        { role: "user", content: prompt }
+      ],
+      max_tokens: 1000,
+      temperature: 0.2
+    });
+    
+    const content = completion.choices[0].message.content.trim();
+    
+    try {
+      const parsed = JSON.parse(content);
+      
+      console.log(`🤖 GPT Query Interpretation: "${parsed.query_interpretation}"`);
+      
+      const matches = parsed.matched_products || [];
+      
+      // Convert to product format
+      const matchedProducts = matches
+        .map(gptMatch => {
+          const product = productsData.find(p => p.id === gptMatch.id);
+          if (!product) return null;
+          
+          return {
+            id: product.id,
+            name: product.name,
+            price: product.price || null,
+            image: product.image || null,
+            tagsArray: product.tagsArray || [],
+            score: gptMatch.confidence || 0.5,
+            matchedFields: ['gpt_semantic'],
+            gpt_reason: gptMatch.match_reason || '',
+            query_interpretation: parsed.query_interpretation
+          };
+        })
+        .filter(Boolean);
+      
+      return matchedProducts.slice(0, 5);
+      
+    } catch (parseError) {
+      console.error('Error parsing GPT response:', parseError, 'Raw:', content.substring(0, 200));
+      return [];
+    }
+    
+  } catch (error) {
+    console.error('GPT product matching error:', error);
+    return [];
+  }
+}
+
+async function findSellersForGallery(gallery, query) {
+  if (!gallery || !sellersData.length) return [];
+  
+  console.log(`🔍 Finding sellers for gallery: ${gallery.type2 || gallery.name}`);
+  
+  const matchedSellers = [];
+  
+  sellersData.forEach(seller => {
+    let score = 0;
+    let matchReasons = [];
+    
+    // Priority 1: Direct store name match
+    if (seller.store_name) {
+      const storeName = seller.store_name.toLowerCase();
+      
+      // Match with gallery type2 (often store name)
+      if (gallery.type2 && storeName.includes(gallery.type2.toLowerCase())) {
+        score += 2.0;
+        matchReasons.push(`Store name matches gallery type: "${gallery.type2}"`);
+      }
+      
+      // Match with query terms
+      const queryTerms = query.toLowerCase().split(/\s+/).filter(t => t.length > 2);
+      queryTerms.forEach(term => {
+        if (storeName.includes(term) || smartSimilarity(storeName, term) > 0.8) {
+          score += 1.0;
+          matchReasons.push(`Store name matches query term: "${term}"`);
+        }
+      });
+    }
+    
+    // Priority 2: Category matching
+    if (seller.category_ids_array && gallery.catnameArray) {
+      const commonCategories = seller.category_ids_array.filter(sellerCat =>
+        gallery.catnameArray.some(galleryCat =>
+          smartSimilarity(sellerCat, galleryCat) > 0.7
+        )
+      );
+      
+      if (commonCategories.length > 0) {
+        score += (commonCategories.length * 0.5);
+        matchReasons.push(`Shared categories: ${commonCategories.join(', ')}`);
+      }
+    }
+    
+    // Priority 3: Seller ID matching with gallery seller_id
+    if (gallery.seller_id && seller.seller_id && 
+        String(gallery.seller_id).trim() === String(seller.seller_id).trim()) {
+      score += 3.0;
+      matchReasons.push('Direct seller ID match');
+    }
+    
+    if (score > 0.8) {
+      matchedSellers.push({
+        ...seller,
+        score: score,
+        matchReasons: matchReasons,
+        galleryMatch: gallery.type2 || gallery.name
+      });
+    }
+  });
+  
+  return matchedSellers
     .sort((a, b) => b.score - a.score)
-    .slice(0, 5);
+    .slice(0, 3);
+}
+async function getEnhancedResponse(userMessage) {
+  console.log(`🚀 Processing: "${userMessage}"`);
+  
+  // STEP 1: PRODUCT SEARCH (Highest Priority)
+  console.log('📦 Step 1: Searching products...');
+  const productMatches = await searchProductsForQuery(userMessage);
+  
+  // STEP 2: GALLERY SEARCH based on products found
+  console.log('🏬 Step 2: Finding related galleries...');
+  let galleryMatches = [];
+  if (productMatches.length > 0) {
+    // Get unique categories from product matches
+    const productCategories = [];
+    productMatches.forEach(p => {
+      if (p.tagsArray) productCategories.push(...p.tagsArray);
+    });
+    
+    // Find galleries matching these categories
+    galleryMatches = findGalleriesByCategories(productCategories, userMessage);
+  }
+  
+  // If no gallery matches found, try store name matching
+  if (galleryMatches.length === 0) {
+    galleryMatches = matchGalleriesByStoreName(userMessage, productMatches);
+  }
+  
+  // STEP 3: SELLER SEARCH based on galleries
+  console.log('👨‍💼 Step 3: Finding sellers...');
+  let sellerMatches = [];
+  if (galleryMatches.length > 0) {
+    for (const gallery of galleryMatches.slice(0, 2)) {
+      const sellers = await findSellersForGallery(gallery, userMessage);
+      sellerMatches.push(...sellers);
+    }
+    
+    // Remove duplicates
+    sellerMatches = sellerMatches.filter((seller, index, self) =>
+      index === self.findIndex(s => s.seller_id === seller.seller_id)
+    );
+  }
+  
+  // STEP 4: If still no results, try GPT-based matching
+  if (productMatches.length === 0 && galleryMatches.length === 0) {
+    console.log('🤖 Step 4: Using GPT for fallback matching...');
+    return await gptFallbackMatching(userMessage);
+  }
+  
+  // STEP 5: Build response
+  return buildEnhancedResponse(userMessage, productMatches, galleryMatches, sellerMatches);
+}
+
+// Helper: Find galleries by product categories
+function findGalleriesByCategories(categories, query) {
+  if (!categories.length || !galleriesData.length) return [];
+  
+  const matchedGalleries = [];
+  
+  galleriesData.forEach(gallery => {
+    let score = 0;
+    let matchedCategories = [];
+    
+    // Check gallery categories
+    if (gallery.catnameArray) {
+      categories.forEach(cat => {
+        gallery.catnameArray.forEach(gCat => {
+          if (smartSimilarity(cat, gCat) > 0.7) {
+            score += 1.0;
+            matchedCategories.push(`${cat} → ${gCat}`);
+          }
+        });
+      });
+    }
+    
+    if (score > 0.5) {
+      matchedGalleries.push({
+        ...gallery,
+        score: score,
+        matchedCategories: matchedCategories
+      });
+    }
+  });
+  
+  return matchedGalleries
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3);
+}
+
+// GPT fallback matching
+async function gptFallbackMatching(userMessage) {
+  if (!openai) return buildConciseResponse(userMessage, [], {}, []);
+  
+  try {
+    const prompt = `
+    User is searching for: "${userMessage}"
+    
+    Please analyze this query and identify:
+    1. Product type/category (e.g., clothing, electronics, home decor)
+    2. Specific attributes (color, size, brand, material)
+    3. Price range indicators
+    4. Store/brand mentions
+    
+    Return in JSON format:
+    {
+      "product_category": "category name",
+      "attributes": ["attr1", "attr2"],
+      "price_hint": "optional price range",
+      "store_mentions": ["store1", "store2"]
+    }
+    `;
+    
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4.1",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.3,
+      max_tokens: 200
+    });
+    
+    const analysis = JSON.parse(completion.choices[0].message.content);
+    
+    // Use analysis to search products
+    const searchTerms = [
+      analysis.product_category,
+      ...analysis.attributes,
+      ...analysis.store_mentions
+    ].filter(Boolean).join(' ');
+    
+    if (searchTerms) {
+      return await getEnhancedResponse(searchTerms);
+    }
+    
+    return buildConciseResponse(userMessage, [], {}, []);
+    
+  } catch (error) {
+    console.error('GPT fallback error:', error);
+    return buildConciseResponse(userMessage, [], {}, []);
+  }
+}
+
+// Enhanced response builder
+function buildEnhancedResponse(query, products, galleries, sellers) {
+  let responseText = `Based on your search for "${query}":\n\n`;
+  
+  if (products.length === 0 && galleries.length === 0) {
+    responseText = `I couldn't find exact matches for "${query}". Here are some related suggestions:`;
+    // Show popular products as fallback
+    products = productsData.slice(0, 5);
+  }
+  
+  const response = {
+    type: 'enhanced',
+    text: responseText,
+    products: products.slice(0, 5).map(p => formatProduct(p)),
+    galleries: galleries.slice(0, 3).map(g => formatGallery(g)),
+    sellers: sellers.slice(0, 3).map(s => formatSeller(s)),
+    stats: {
+      productsFound: products.length,
+      galleriesFound: galleries.length,
+      sellersFound: sellers.length
+    }
+  };
+  
+  return response;
+}
+
+// Format product for response
+function formatProduct(product) {
+  return {
+    id: product.id,
+    name: product.name || 'Product',
+    price: product.price || 'Price on request',
+    image: product.image || 'https://via.placeholder.com/150x200/1a2733/ffffff?text=Product',
+    link: product.id ? `https://app.zulu.club/featured/product?id=${product.id}` : '#',
+    tags: product.tagsArray || [],
+    matchScore: product.score || 0,
+    matchDetails: product.matchDetails || []
+  };
+}
+
+// Format gallery for response
+function formatGallery(gallery) {
+  return {
+    id: gallery.id,
+    name: gallery.type2 || gallery.name || 'Gallery',
+    image: gallery.image1 || 'https://via.placeholder.com/150x200/1a2733/ffffff?text=Gallery',
+    link: gallery.id ? `https://app.zulu.club/gallery/id=${gallery.id}` : '#',
+    type: gallery.type2 || '',
+    categories: gallery.catnameArray || [],
+    isStore: gallery.isStore || false
+  };
+}
+
+// Format seller for response
+function formatSeller(seller) {
+  return {
+    id: seller.seller_id || seller.user_id,
+    name: seller.store_name || 'Seller',
+    link: seller.user_id ? `https://app.zulu.club/sellerassets/${seller.user_id}` : '#',
+    categories: seller.category_ids_array || [],
+    matchReasons: seller.matchReasons || []
+  };
 }
 // Replace the existing buildConciseResponse function with this updated version:
 
@@ -1820,7 +2461,7 @@ function buildConciseResponse(userMessage, galleryMatches = [], sellersObj = {},
       
       // If it's already a number
       if (typeof priceValue === 'number') {
-        priceDisplay = `₹${priceValue}`;
+        priceDisplay = `${priceValue}`;
         console.log(`Formatted from number: ${priceDisplay}`);
       }
       // If it's a string
@@ -1831,7 +2472,7 @@ function buildConciseResponse(userMessage, galleryMatches = [], sellersObj = {},
         
         if (cleanedPrice && !isNaN(parseFloat(cleanedPrice))) {
           const priceNum = parseFloat(cleanedPrice);
-          priceDisplay = `₹${priceNum}`;
+          priceDisplay = `${priceNum}`;
           console.log(`Formatted from string: ${priceDisplay}`);
         }
       }
@@ -1860,7 +2501,9 @@ function buildConciseResponse(userMessage, galleryMatches = [], sellersObj = {},
       price: priceDisplay,
       image: imageUrl,
       link: productLink,
-      score: product.score || 0
+      score: product.score || 0,
+      matchedVia: product.matchedFields || [],
+      gptReason: product.gpt_reason || ''  // Add this line
     };
   });
   
@@ -1933,16 +2576,6 @@ function buildConciseResponse(userMessage, galleryMatches = [], sellersObj = {},
   
   // Create response text
   let textResponse = `Based on your search for "${userMessage}":\n\n`;
-  
-  if (products.length > 0) {
-    textResponse += `✅ Found ${products.length} products\n`;
-  }
-  if (galleries.length > 0) {
-    textResponse += `🎨 Found ${galleries.length} galleries\n`;
-  }
-  if (sellers.length > 0) {
-    textResponse += `👥 Found ${sellers.length} sellers\n`;
-  }
   
   if (products.length === 0 && galleries.length === 0 && sellers.length === 0) {
     textResponse += `No results found for "${userMessage}". Try searching with different keywords.`;
@@ -2314,11 +2947,11 @@ function createOrTouchSession(sessionId, isAuthenticated = false) {
       lastMedia: null,
       isAuthenticated: isAuthenticated
     };
-    console.log(`✅ Created new session: ${sessionId}`);
+    console.log(`Created new session: ${sessionId}`);
   } else {
     conversations[sessionId].lastActive = nowMs();
     conversations[sessionId].isAuthenticated = isAuthenticated || conversations[sessionId].isAuthenticated;
-    console.log(`✅ Updated existing session: ${sessionId}`);
+    console.log(`Updated existing session: ${sessionId}`);
   }
   
   return conversations[sessionId];
@@ -2341,13 +2974,13 @@ function appendToSessionHistory(sessionId, role, content) {
   }
   
   conversations[sessionId].lastActive = nowMs();
-  console.log(`✅ History updated for ${sessionId}, total messages: ${conversations[sessionId].history.length}`);
+  console.log(`History updated for ${sessionId}, total messages: ${conversations[sessionId].history.length}`);
 }
 
 function getFullSessionHistory(sessionId) {
   const s = conversations[sessionId];
   if (!s || !s.history) {
-    console.log(`❌ No history found for session: ${sessionId}`);
+    console.log(`No history found for session: ${sessionId}`);
     return [];
   }
   return s.history.slice();
@@ -2511,12 +3144,13 @@ For more details, please contact our support team.`;
     }
     
 // In the getChatGPTResponse function, update the product intent section:
-if (intent === 'product' && galleriesData.length > 0) {
+if (intent === 'product' && (galleriesData.length > 0 || productsData.length > 0)) {
   if (session.lastDetectedIntent !== 'product') {
     session.lastDetectedIntent = 'product';
     session.lastDetectedIntentTs = nowMs();
   }
   
+  const enhancedResponse = await getEnhancedResponse(userMessage);
   const keywordMatches = matchGalleriesByAllFields(userMessage);
   const matchedIds = (classification.matches || []).map(m => m.id).filter(Boolean);
   const matchedType2s = (classification.matches || []).map(m => m.type2).filter(Boolean);
@@ -2579,18 +3213,18 @@ if (intent === 'product' && galleriesData.length > 0) {
   const detectedGender = inferGenderFromCategories(matchedCategories);
   const sellers = await findSellersForQuery(userMessage, matchedCategories, detectedGender);
   
-  // Search for products based on user query
-  const products = searchProductsForQuery(userMessage);
-  
+  const products = await searchProductsForQuery(userMessage); 
+
   return buildConciseResponse(userMessage, matchedCategories, sellers, products);
+  return enhancedResponse;
 }
     
     // Default: company response
     return await generateCompanyResponse(userMessage, getFullSessionHistory(sessionId), companyInfo = ZULU_CLUB_INFO);
     
   } catch (error) {
-    console.error('❌ getChatGPTResponse error:', error);
-    return `⚠️ Sorry, I encountered an error. Please try again.`;
+    console.error('getChatGPTResponse error:', error);
+    return `Sorry, I encountered an error. Please try again.`;
   }
 }
 
@@ -2600,7 +3234,7 @@ async function handleMessage(sessionId, userMessage, isAuthenticated = false) {
   try {
     // Add validation for sessionId
     if (!sessionId) {
-      console.error('❌ handleMessage called with undefined sessionId');
+      console.error('handleMessage called with undefined sessionId');
       throw new Error('Session ID is required');
     }
     
@@ -2670,12 +3304,12 @@ async function handleMessage(sessionId, userMessage, isAuthenticated = false) {
     };
   } 
   catch (error) {
-    console.error('❌ Error handling message:', error);
+    console.error('Error handling message:', error);
     return {
       success: false,
       response: {
         type: 'text',
-        text: '⚠️ Sorry, I encountered an error. Please try again.'
+        text: 'Sorry, I encountered an error. Please try again.'
       },
       responseType: 'text',
       timestamp: new Date().toISOString(),
@@ -2684,9 +3318,6 @@ async function handleMessage(sessionId, userMessage, isAuthenticated = false) {
     };
   }
 }
-// -------------------------
-// OTP Authentication Endpoints
-// -------------------------
 
 /**
  * Send OTP to phone number
@@ -2737,7 +3368,7 @@ app.post('/auth/verify-otp', async (req, res) => {
       });
     }
 
-    console.log(`🔐 Verifying OTP for: ${phoneNumber}`);
+    console.log(`Verifying OTP for: ${phoneNumber}`);
     
     const result = await verifyOtp(phoneNumber, otp);
     
@@ -2848,10 +3479,10 @@ app.post('/chat/message', checkAuthentication, async (req, res) => {
     const isAuthenticated = req.isAuthenticated;
     const { message } = req.body;
     
-    console.log(`💬 Chat message from ${sessionId} (Authenticated: ${isAuthenticated}): ${message}`);
+    console.log(`Chat message from ${sessionId} (Authenticated: ${isAuthenticated}): ${message}`);
     
     if (!sessionId) {
-      console.error('❌ sessionId is undefined in /chat/message endpoint');
+      console.error('sessionId is undefined in /chat/message endpoint');
       return res.status(400).json({
         success: false,
         error: 'Session ID is required'
@@ -2872,7 +3503,7 @@ app.post('/chat/message', checkAuthentication, async (req, res) => {
     return res.json(result);
     
   } catch (error) {
-    console.error('💥 Chat API error:', error.message);
+    console.error('Chat API error:', error.message);
     return res.status(500).json({
       success: false,
       error: error.message
@@ -2889,7 +3520,7 @@ app.post('/chat/create-session', (req, res) => {
     // Create session
     createOrTouchSession(sessionId, false);
     
-    console.log(`🎁 Created unauthenticated session: ${sessionId}`);
+    console.log(`Created unauthenticated session: ${sessionId}`);
     
     return res.json({
       success: true,
@@ -2912,14 +3543,14 @@ app.post('/chat/create-session', (req, res) => {
 app.get('/chat/history/:sessionId', async (req, res) => {
   try {
     const { sessionId } = req.params;
-    console.log(`📜 Getting history for session: ${sessionId}`);
+    console.log(`Getting history for session: ${sessionId}`);
     
     let session = conversations[sessionId];
     let isAuthenticated = false;
     
     // If session doesn't exist but it's a guest session, create it
     if (!session && sessionId.startsWith('guest-')) {
-      console.log(`🔄 Session ${sessionId} not found, creating new guest session`);
+      console.log(`Session ${sessionId} not found, creating new guest session`);
       session = createOrTouchSession(sessionId, false);
     }
     
@@ -2927,7 +3558,7 @@ app.get('/chat/history/:sessionId', async (req, res) => {
       isAuthenticated = session.isAuthenticated;
       const history = getFullSessionHistory(sessionId);
       
-      console.log(`📜 Session ${sessionId} exists, history length: ${history.length}, authenticated: ${isAuthenticated}`);
+      console.log(`Session ${sessionId} exists, history length: ${history.length}, authenticated: ${isAuthenticated}`);
       
       return res.json({
         success: true,
@@ -2948,7 +3579,7 @@ app.get('/chat/history/:sessionId', async (req, res) => {
         isAuthenticated: false
       });
     } else {
-      console.log(`❌ Session ${sessionId} not found and is not a guest session or phone number`);
+      console.log(`Session ${sessionId} not found and is not a guest session or phone number`);
       return res.status(400).json({
         success: false,
         error: 'Invalid session'
@@ -2956,7 +3587,7 @@ app.get('/chat/history/:sessionId', async (req, res) => {
     }
     
   } catch (error) {
-    console.error('💥 Chat history error:', error.message);
+    console.error('Chat history error:', error.message);
     return res.status(500).json({
       success: false,
       error: error.message
@@ -2967,10 +3598,6 @@ app.get('/chat/history/:sessionId', async (req, res) => {
 // -------------------------
 // New Database Endpoints
 // -------------------------
-// Main server file - Add this endpoint
-// Add these endpoints with the other API endpoints in server.js
-
-// Get categories data
 app.get('/api/categories', async (req, res) => {
   try {
     const data = await db.getCachedData('categories');
@@ -2981,7 +3608,7 @@ app.get('/api/categories', async (req, res) => {
       count: data.length
     });
   } catch (error) {
-    console.error('❌ Error fetching categories:', error);
+    console.error('Error fetching categories:', error);
     res.status(500).json({
       success: false,
       error: error.message
@@ -3067,7 +3694,7 @@ app.get('/api/product-stats-by-updater', async (req, res) => {
       lastUpdated: new Date().toISOString()
     });
   } catch (error) {
-    console.error('❌ Error fetching product stats by updater:', error);
+    console.error('Error fetching product stats by updater:', error);
     res.status(500).json({
       success: false,
       error: error.message
@@ -3090,7 +3717,7 @@ app.post('/api/refresh-connection', (req, res) => {
       });
     }
   } catch (error) {
-    console.error('❌ Error refreshing connection:', error);
+    console.error('Error refreshing connection:', error);
     res.status(500).json({
       success: false,
       error: error.message
@@ -3114,7 +3741,7 @@ app.post('/api/close-connection', (req, res) => {
       });
     }
   } catch (error) {
-    console.error('❌ Error closing connection:', error);
+    console.error('Error closing connection:', error);
     res.status(500).json({
       success: false,
       error: error.message
@@ -3138,7 +3765,7 @@ app.post('/api/create-connection', (req, res) => {
       });
     }
   } catch (error) {
-    console.error('❌ Error creating connection:', error);
+    console.error('Error creating connection:', error);
     res.status(500).json({
       success: false,
       error: error.message
@@ -3156,18 +3783,14 @@ app.get('/api/products', async (req, res) => {
       count: data.length
     });
   } catch (error) {
-    console.error('❌ Error fetching products:', error);
+    console.error('Error fetching products:', error);
     res.status(500).json({
       success: false,
       error: error.message
     });
   }
 });
-// Get galleries data
 
-// Products के routes के बाद ये add करें:
-
-// Get appconfigs data
 app.get('/api/appconfigs', async (req, res) => {
   try {
     const data = await db.getAppConfigsData();
@@ -3178,7 +3801,7 @@ app.get('/api/appconfigs', async (req, res) => {
       count: data.length
     });
   } catch (error) {
-    console.error('❌ Error fetching app configs:', error);
+    console.error('Error fetching app configs:', error);
     res.status(500).json({
       success: false,
       error: error.message
@@ -3248,7 +3871,7 @@ app.get('/api/galleries', async (req, res) => {
       count: data.length
     });
   } catch (error) {
-    console.error('❌ Error fetching galleries:', error);
+    console.error('Error fetching galleries:', error);
     res.status(500).json({
       success: false,
       error: error.message
@@ -3266,7 +3889,7 @@ app.get('/api/sellers', async (req, res) => {
       count: data.length
     });
   } catch (error) {
-    console.error('❌ Error fetching sellers:', error);
+    console.error('Error fetching sellers:', error);
     res.status(500).json({
       success: false,
       error: error.message
@@ -3285,7 +3908,7 @@ app.get('/api/videos', async (req, res) => {
       count: data.length
     });
   } catch (error) {
-    console.error('❌ Error fetching videos:', error);
+    console.error('Error fetching videos:', error);
     res.status(500).json({
       success: false,
       error: error.message
@@ -3304,7 +3927,7 @@ app.get('/api/users', async (req, res) => {
       count: data.length
     });
   } catch (error) {
-    console.error('❌ Error fetching users:', error);
+    console.error('Error fetching users:', error);
     res.status(500).json({
       success: false,
       error: error.message
@@ -3335,13 +3958,178 @@ app.get('/api/cache-status', (req, res) => {
     cacheStatus: status
   });
 });
+
+// Enhanced videos endpoint with category names
+app.get('/api/videosenhanced', async (req, res) => {
+  try {
+    // Get all necessary data
+    const videos = await db.getCachedData('videos');
+    const categories = await db.getCachedData('categories');
+    const sellers = await db.getCachedData('sellers');
+    
+    // Create lookup maps
+    const categoryMap = {};
+    categories.forEach(cat => {
+      categoryMap[cat.id] = {
+        name: cat.name,
+        parent_id: cat.parent_id
+      };
+    });
+    
+    const sellerMap = {};
+    sellers.forEach(seller => {
+      sellerMap[seller.user_id] = seller.store_name;
+    });
+    
+    // Enhance videos with names and process sub_sub_category
+    const enhancedVideos = videos.map(video => {
+      // Get main category name
+      const categoryInfo = categoryMap[video.category_id];
+      const categoryName = categoryInfo ? categoryInfo.name : '';
+      
+      // Get seller name
+      const sellerName = sellerMap[video.seller_id] || '';
+      
+      // Process sub_sub_category (could be JSON array, comma-separated, or single value)
+      let subCategoryIds = [];
+      let subCategoryNames = [];
+      
+      if (video.sub_sub_category) {
+        try {
+          // Try to parse as JSON array
+          const parsed = JSON.parse(video.sub_sub_category);
+          if (Array.isArray(parsed)) {
+            subCategoryIds = parsed.map(id => String(id).trim());
+          } else if (typeof parsed === 'string') {
+            subCategoryIds = parsed.split(',').map(id => String(id).trim());
+          } else if (typeof parsed === 'number') {
+            subCategoryIds = [String(parsed)];
+          }
+        } catch (e) {
+          // If not JSON, try comma-separated or single value
+          const strVal = String(video.sub_sub_category);
+          if (strVal.includes(',')) {
+            subCategoryIds = strVal.split(',').map(id => String(id).trim());
+          } else {
+            subCategoryIds = [strVal.trim()];
+          }
+        }
+        
+        // Get names for sub categories
+        subCategoryNames = subCategoryIds.map(id => {
+          const cat = categories.find(c => String(c.id) === id);
+          return cat ? cat.name : `Sub Cat ${id}`;
+        });
+      }
+      
+      return {
+        ...video,
+        id: video.id,
+        category_name: categoryName,
+        seller_name: sellerName,
+        sub_category_ids: subCategoryIds,
+        sub_category_names: subCategoryNames,
+        sub_category_display: subCategoryNames.join(', '),
+        status_display: video.status == 1 ? 'Active' : 'Inactive',
+        priority_display: video.priority ? `P${video.priority}` : 'P1',
+        has_thumbnail: !!video.thumbnail,
+        thumbnail_url: video.thumbnail ? getFullMediaUrl(video.thumbnail) : ''
+      };
+    });
+    
+    res.json({
+      success: true,
+      data: enhancedVideos,
+      categories: categories,
+      sellers: sellers,
+      count: enhancedVideos.length
+    });
+  } catch (error) {
+    console.error('Error fetching enhanced videos:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Helper function for media URLs
+function getFullMediaUrl(url) {
+  if (!url) return '';
+  if (url.startsWith('http')) return url;
+  if (url.startsWith('/')) return `https://zulushop.in${url}`;
+  return `https://zulushop.in/${url}`;
+}
+
+// Thumbnail upload endpoint (keep existing)
+app.post('/api/videos/:id/upload-thumbnail', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { thumbnailUrl } = req.body;
+    
+    if (!thumbnailUrl) {
+      return res.status(400).json({
+        success: false,
+        error: 'Thumbnail URL is required'
+      });
+    }
+    
+    const updateData = {
+      thumbnail: thumbnailUrl
+    };
+    
+    const result = await db.executeUpdate('videos', id, updateData);
+    
+    res.json({
+      success: true,
+      message: 'Thumbnail updated successfully',
+      data: {
+        id: id,
+        thumbnail: thumbnailUrl
+      }
+    });
+    
+  } catch (error) {
+    console.error('Thumbnail upload error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Also add direct video update endpoint
+app.put('/api/videos/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+    
+    delete updateData.id;
+    
+    const result = await db.executeUpdate('videos', id, updateData);
+    
+    res.json({
+      success: true,
+      message: 'Video updated successfully',
+      affectedRows: result.affectedRows
+    });
+  } catch (error) {
+    console.error('Update videos error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
 // -------------------------
 // HTML Pages
 // -------------------------
 app.get('/home', (req, res) => {
   res.sendFile(__dirname + '/index.html');
 });
-
+app.get('/productscards', (req, res) => {
+  res.sendFile(__dirname + '/productscards.html');
+});
 app.get('/products', (req, res) => {
   res.sendFile(__dirname + '/products.html');
 });
@@ -3351,30 +4139,33 @@ app.get('/appconfigs', (req, res) => {
 app.get('/sellers', (req, res) => {
   res.sendFile(__dirname + '/sellers.html');
 });
-
+app.get('/sellercards', (req, res) => {
+  res.sendFile(__dirname + '/sellercards.html');
+});
+app.get('/productscards', (req, res) => {
+  res.sendFile(__dirname + '/productscards.html');
+});
 app.get('/videos', (req, res) => {
   res.sendFile(__dirname + '/videos.html');
 });
-
+app.get('/videoscards', (req, res) => {
+  res.sendFile(__dirname + '/videoscards.html');
+});
 app.get('/users', (req, res) => {
   res.sendFile(__dirname + '/users.html');
 });
-
-// Galleries route
 app.get('/galleries', (req, res) => {
 res.sendFile(__dirname + '/galleries.html');
 });
-// Add this with the other HTML page routes
 app.get('/categories', (req, res) => {
   res.sendFile(__dirname + '/categories.html');
 });
-// Update record endpoint
+
 app.put('/api/:table/:id', async (req, res) => {
   try {
     const { table, id } = req.params;
     const updateData = req.body;
     
-    // Validate table name
     const validTables = ['products', 'sellers', 'users', 'videos', 'galleries'];
     if (!validTables.includes(table)) {
       return res.status(400).json({ 
@@ -3383,12 +4174,9 @@ app.put('/api/:table/:id', async (req, res) => {
       });
     }
     
-    // Remove id from update data if present
     delete updateData.id;
-    
-    // Use the db object
-    const result = await db.executeUpdate(table, id, updateData);  // Changed
-    
+  
+    const result = await db.executeUpdate(table, id, updateData);  // Changed    
     res.json({
       success: true,
       message: 'Record updated successfully',
@@ -3402,13 +4190,10 @@ app.put('/api/:table/:id', async (req, res) => {
     });
   }
 });
-
 // Get single record endpoint
 app.get('/api/:table/:id', async (req, res) => {
   try {
-    const { table, id } = req.params;
-    
-    // Validate table name
+    const { table, id } = req.params;    
     const validTables = ['products', 'sellers', 'users', 'videos', 'galleries'];
     if (!validTables.includes(table)) {
       return res.status(400).json({ 
@@ -3416,8 +4201,7 @@ app.get('/api/:table/:id', async (req, res) => {
         error: 'Invalid table name' 
       });
     }
-    
-    // Use the db object
+  
     const record = await db.getRecordById(table, id);  // Changed
     
     if (!record) {
@@ -3440,10 +4224,6 @@ app.get('/api/:table/:id', async (req, res) => {
   }
 });
 
-// -------------------------
-// Root and other endpoints
-// -------------------------
-// Add this endpoint to server.js
 app.get('/debug/products', async (req, res) => {
   try {
     console.log('Debug: Checking products data...');
@@ -3469,6 +4249,55 @@ app.get('/debug/products', async (req, res) => {
   } catch (error) {
     console.error('Debug error:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+// Add enhanced products endpoint with category and seller names
+app.get('/api/productsenhanced', async (req, res) => {
+  try {
+    const products = await db.getCachedData('products');
+    const categories = await db.getCachedData('categories');
+    const sellers = await db.getCachedData('sellers');
+    
+    const categoryMap = {};
+    categories.forEach(cat => {
+      categoryMap[cat.id] = cat.name;
+    });
+  
+    const sellerMap = {};
+    sellers.forEach(seller => {
+      sellerMap[seller.user_id] = seller.store_name;
+    });
+    
+    const enhancedProducts = products.map(product => {
+      const enhanced = {
+        ...product,
+        category_name: categoryMap[product.category_id] || '',
+        cat1_name: categoryMap[product.cat1] || '',
+        seller_name: sellerMap[product.seller_id] || '',
+        formatted_price: product.retail_simple_price ? 
+          `₹${parseFloat(product.retail_simple_price).toFixed(2)}` : '',
+        formatted_special_price: product.retail_simple_special_price ? 
+          `₹${parseFloat(product.retail_simple_special_price).toFixed(2)}` : '',
+        discount_percent: product.retail_simple_price && product.retail_simple_special_price ?
+          Math.round(((product.retail_simple_price - product.retail_simple_special_price) / product.retail_simple_price) * 100) : 0
+      };
+      
+      return enhanced;
+    });
+    
+    res.json({
+      success: true,
+      data: enhancedProducts,
+      categories: categories,
+      sellers: sellers,
+      count: enhancedProducts.length
+    });
+  } catch (error) {
+    console.error('Error fetching enhanced products:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
   }
 });
 
@@ -3516,7 +4345,520 @@ app.get('/refresh-csv', async (req, res) => {
     res.status(500).json({ status: 'error', message: error.message });
   }
 });
+// AI Endpoints
+app.use('/ai-cache', express.static(path.join(__dirname, 'public', 'ai-cache')));
 
+async function cacheImageFor5Min(imageSource, req) {
+    let buffer;
+
+    // If it's a data URL (base64)
+    if (imageSource.startsWith('data:image')) {
+        const base64 = imageSource.split(',')[1];
+        buffer = Buffer.from(base64, 'base64');
+    }
+    // If it's raw base64 without header
+    else if (/^[A-Za-z0-9+/=]+$/.test(imageSource.slice(0, 100))) {
+        buffer = Buffer.from(imageSource, 'base64');
+    }
+    // If it's a normal URL
+    else {
+        const response = await fetch(imageSource);
+        buffer = Buffer.from(await response.arrayBuffer());
+    }
+
+    const filename = `${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`;
+    const dir = path.join(__dirname, 'public', 'ai-cache');
+    const filepath = path.join(dir, filename);
+
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(filepath, buffer);
+
+    // Auto delete after 5 minutes
+    setTimeout(() => {
+        if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
+    }, 5 * 60 * 1000);
+
+    return `${req.protocol}://${req.get('host')}/ai-cache/${filename}`;
+}
+app.post('/api/ai/enhance-image', async (req, res) => {
+    try {
+        const { imageUrl, productName } = req.body;
+
+        if (!imageUrl) {
+            return res.status(400).json({ success: false, error: 'No image URL provided' });
+        }
+
+        console.log('🔄 Enhancing image:', imageUrl);
+
+        let base64Image;
+        const imgRes = await fetch(imageUrl);
+        const buffer = await imgRes.arrayBuffer();
+        base64Image = Buffer.from(buffer).toString('base64');
+
+        const prompt = `
+Ultra-realistic studio product enhancement.
+Product: ${productName || 'Unknown'}
+No crop, no reshape, no text, no humans.
+Premium lighting, white background.
+`;
+
+        try {
+            const response = await openai.responses.create({
+                model: "gpt-4.1",
+                input: [{
+                    role: "user",
+                    content: [
+                        { type: "input_text", text: prompt },
+                        { type: "input_image", image_url: `data:image/jpeg;base64,${base64Image}` }
+                    ]
+                }],
+                tools: [{ type: "image_generation", size: "1024x1536", quality: "high" }]
+            });
+
+            let enhancedImageUrl = null;
+            for (const out of response.output || []) {
+                if (out.type === "image_generation_call") enhancedImageUrl = out.result;
+                if (out.type === "message") {
+                    for (const c of out.content || []) {
+                        if (c.type === "image") enhancedImageUrl = c.image_url;
+                    }
+                }
+            }
+
+            if (!enhancedImageUrl) throw new Error("No image returned");
+
+            const cachedUrl = await cacheImageFor5Min(enhancedImageUrl, req);
+
+            return res.json({
+                success: true,
+                enhancedImageUrl: cachedUrl,
+                ttl: 300
+            });
+
+        } catch (err) {
+            console.error("Primary enhancement failed:", err);
+
+            const dalle = await openai.images.generate({
+                model: "dall-e-3",
+                prompt: `Studio product photo of ${productName}, white background, premium lighting.`,
+                size: "1024x1024",
+                quality: "high"
+            });
+
+            const cachedUrl = await cacheImageFor5Min(dalle.data[0].url);
+
+            return res.json({
+                success: true,
+                enhancedImageUrl: cachedUrl,
+                fallback: true,
+                ttl: 300
+            });
+        }
+
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            enhancedImageUrl: req.body.imageUrl,
+            error: error.message
+        });
+    }
+});
+app.post('/api/ai/analyze-categories', async (req, res) => {
+    try {
+        const { productName, currentCategory, currentCat1, imageUrl, description } = req.body;
+        
+        console.log('🔄 Analyzing categories for:', productName);
+        
+        const categories = await db.getCachedData('categories');
+        
+        if (!categories || categories.length === 0) {
+            console.warn('No categories found in database');
+            db.clearCache('categories');
+            const freshCategories = await db.getCachedData('categories');
+            if (!freshCategories || freshCategories.length === 0) {
+                categories = [
+                    { id: 1, name: "Electronics", parent_id: 0 },
+                    { id: 2, name: "Clothing", parent_id: 0 },
+                    { id: 3, name: "Home & Kitchen", parent_id: 0 },
+                    { id: 4, name: "Beauty", parent_id: 0 },
+                    { id: 5, name: "Sports", parent_id: 0 },
+                    { id: 6, name: "Books", parent_id: 0 },
+                    { id: 7, name: "Toys", parent_id: 0 }
+                ];
+            } else {
+                categories = freshCategories;
+            }
+        }
+        
+        const mainCategories = categories.filter(cat => cat.parent_id === 0 || cat.parent_id === null);
+        const allCategories = categories.map(cat => ({
+            id: cat.id,
+            name: cat.name,
+            parent_id: cat.parent_id,
+            parentName: cat.parent_id ? categories.find(p => p.id === cat.parent_id)?.name || 'Unknown' : null
+        }));
+        
+        const categoryOptions = allCategories.map(cat => {
+            if (cat.parent_id) {
+                return `${cat.id}: ${cat.name} (Sub-category of ${cat.parentName})`;
+            }
+            return `${cat.id}: ${cat.name} (Main Category)`;
+        }).join('\n');
+        
+        const prompt = `
+        Analyze this product and suggest the best category and sub-category (cat1) from the available options.
+        
+        PRODUCT DETAILS:
+        - Name: ${productName}
+        - Current Category: ${currentCategory || 'Not set'}
+        - Current Cat1: ${currentCat1 || 'Not set'}
+        - Description: ${description || 'No description'}
+        
+        AVAILABLE CATEGORIES:
+        ${categoryOptions}
+        
+        INSTRUCTIONS:
+        1. Look at the product name and description to understand what it is
+        2. If current category seems correct, suggest keeping it
+        3. If current category seems wrong, suggest the most appropriate category
+        4. For cat1 (sub-category), suggest the most specific relevant category
+        5. Only suggest categories that exist in the available list
+        6. If suggesting a change, explain why
+        7. Return in valid JSON format only
+        
+        IMPORTANT:
+        - cat1 MUST be a sub-category of the main category (check parent_id)
+        - If no perfect match exists, choose the closest general category
+        - Do NOT invent new category names
+        
+        RETURN JSON FORMAT:
+        {
+            "suggestedCategory": {"id": 123, "name": "Category Name"},
+            "suggestedCat1": {"id": 456, "name": "Cat1 Name"},
+            "analysis": "Brief explanation of why these categories were chosen"
+        }
+        `;
+        
+        const response = await openai.chat.completions.create({
+            model: "gpt-4.1",
+            messages: [
+                {
+                    role: "user",
+                    content: prompt
+                }
+            ],
+            response_format: { type: "json_object" },
+            temperature: 0.3,
+            max_tokens: 500
+        });
+        
+        let result;
+        try {
+            result = JSON.parse(response.choices[0].message.content);
+            
+            const suggestedCat = allCategories.find(cat => cat.id == result.suggestedCategory?.id);
+            const suggestedCat1 = allCategories.find(cat => cat.id == result.suggestedCat1?.id);
+            
+            if (!suggestedCat) {
+                console.warn('Suggested category not found:', result.suggestedCategory);
+                const similarCat = allCategories.find(cat => 
+                    cat.name.toLowerCase().includes(productName.toLowerCase().split(' ')[0]) ||
+                    productName.toLowerCase().includes(cat.name.toLowerCase())
+                );
+                
+                if (similarCat) {
+                    result.suggestedCategory = { id: similarCat.id, name: similarCat.name };
+                    result.analysis += ` (Category adjusted to "${similarCat.name}" based on similarity)`;
+                } else {
+                    result.suggestedCategory = { id: mainCategories[0]?.id || 1, name: mainCategories[0]?.name || "General" };
+                    result.analysis += " (Using default category)";
+                }
+            }
+            
+            if (!suggestedCat1 && result.suggestedCat1) {
+                console.warn('Suggested cat1 not found:', result.suggestedCat1);
+                result.suggestedCat1 = null;
+                result.analysis += " (Cat1 suggestion removed as it was invalid)";
+            }
+            
+            if (result.suggestedCat1 && result.suggestedCategory) {
+                const cat1Item = allCategories.find(cat => cat.id == result.suggestedCat1.id);
+                if (cat1Item && cat1Item.parent_id !== result.suggestedCategory.id) {
+                    console.warn('Cat1 is not a sub-category of main category');
+                    const validSubCat = allCategories.find(cat => 
+                        cat.parent_id === result.suggestedCategory.id
+                    );
+                    if (validSubCat) {
+                        result.suggestedCat1 = { id: validSubCat.id, name: validSubCat.name };
+                        result.analysis += ` (Adjusted cat1 to valid sub-category "${validSubCat.name}")`;
+                    } else {
+                        result.suggestedCat1 = null;
+                        result.analysis += " (Removed cat1 as no valid sub-category found)";
+                    }
+                }
+            }
+            
+        } catch (parseError) {
+            console.error("Failed to parse AI response:", parseError);
+            const defaultCat = mainCategories[0] || { id: 1, name: "General" };
+            result = {
+                suggestedCategory: { id: defaultCat.id, name: defaultCat.name },
+                suggestedCat1: null,
+                analysis: "Default category assigned due to parsing error. Based on product name analysis, this seems appropriate."
+            };
+        }
+        
+        console.log('Category analysis completed');
+        
+        res.json({
+            success: true,
+            ...result
+        });
+        
+    } catch (error) {
+        console.error('Category analysis error:', error);
+        
+        let categories = [];
+        try {
+            categories = await db.getCachedData('categories');
+        } catch (dbError) {
+            console.error('Failed to fetch categories for fallback:', dbError);
+        }
+        
+        const mainCategories = categories.filter(cat => cat.parent_id === 0 || cat.parent_id === null);
+        const defaultCat = mainCategories[0] || { id: 1, name: "General" };
+        
+        res.json({ 
+            success: true, 
+            suggestedCategory: { id: defaultCat.id, name: defaultCat.name },
+            suggestedCat1: null,
+            analysis: "Error occurred during analysis. Using default category.",
+            warning: error.message
+        });
+    }
+});
+app.post('/api/ai/generate-tags', async (req, res) => {
+    try {
+        const { productName, category, cat1, description, price } = req.body;
+        
+        console.log('🔄 Generating tags for:', productName);
+        
+        const prompt = `
+        Generate exactly 10 relevant tags for this product. Follow these rules:
+        
+        PRODUCT: ${productName}
+        CATEGORY: ${category || 'Not specified'}
+        SUB-CATEGORY: ${cat1 || 'Not specified'}
+        DESCRIPTION: ${description || 'No description'}
+        PRICE RANGE: ${price ? (price < 100 ? 'Budget' : price < 500 ? 'Mid-range' : 'Premium') : 'Not specified'}
+        
+        TAG REQUIREMENTS:
+        1. SEO-friendly keywords
+        2. Relevant to product, category, and sub-category
+        3. Include use-case keywords (how it's used)
+        4. Include feature keywords (what it does/has)
+        5. Include style/type keywords
+        6. All lowercase
+        7. No special characters or symbols
+        8. Max 2 words per tag
+        9. No duplicates
+        10. Include both singular and plural forms where relevant
+        
+        FORMAT:
+        Return as a JSON array of exactly 10 strings.
+        
+        EXAMPLE OUTPUT:
+        {
+            "tags": ["smartphone", "android phone", "mobile device", "touchscreen", "64mp camera", "5g enabled", "long battery", "premium design", "gaming phone", "fast charging"]
+        }
+        `;
+        
+        const response = await openai.chat.completions.create({
+            model: "gpt-4.1",
+            messages: [
+                {
+                    role: "user",
+                    content: prompt
+                }
+            ],
+            response_format: { type: "json_object" },
+            temperature: 0.5,
+            max_tokens: 300
+        });
+        
+        let result;
+        try {
+            result = JSON.parse(response.choices[0].message.content);
+            
+            if (!result.tags || !Array.isArray(result.tags)) {
+                result.tags = [];
+            }
+            
+            result.tags = result.tags
+                .filter(tag => typeof tag === 'string')
+                .map(tag => tag.toLowerCase().trim())
+                .filter(tag => tag.length > 0 && tag.length <= 30)
+                .filter((tag, index, self) => self.indexOf(tag) === index) // Remove duplicates
+                .slice(0, 10); 
+            
+            if (result.tags.length < 10) {
+                const basicTags = productName.toLowerCase().split(' ')
+                    .filter(word => word.length > 2)
+                    .slice(0, 5);
+                
+                result.tags = [...new Set([...result.tags, ...basicTags])].slice(0, 10);
+            }
+            
+        } catch (parseError) {
+            console.error("Failed to parse tags response:", parseError);
+            const basicTags = productName.toLowerCase().split(' ')
+                .filter(word => word.length > 2)
+                .slice(0, 10);
+            result = { tags: basicTags };
+        }
+        
+        console.log(`Generated ${result.tags.length} tags`);
+        
+        res.json({
+            success: true,
+            tags: result.tags
+        });
+        
+    } catch (error) {
+        console.error('Tag generation error:', error);
+        const fallbackTags = req.body.productName 
+            ? req.body.productName.toLowerCase().split(' ')
+                .filter(word => word.length > 2)
+                .slice(0, 5)
+            : [];
+        
+        res.json({ 
+            success: true,
+            tags: fallbackTags,
+            warning: error.message
+        });
+    }
+});
+app.post('/api/ai/generate-descriptions', async (req, res) => {
+    try {
+        const { productName, category, cat1, tags, price, currentDescription } = req.body;
+        
+        console.log('🔄 Generating descriptions for:', productName);
+        
+        // Format price for description
+        const priceText = price ? `₹${parseFloat(price).toFixed(2)}` : 'affordable price';
+        
+        // Main description prompt
+        const mainPrompt = `
+        Write a compelling, SEO-optimized product description.
+        
+        PRODUCT: ${productName}
+        CATEGORY: ${category || 'General'}
+        SUB-CATEGORY: ${cat1 || 'Not specified'}
+        KEY TAGS: ${tags ? tags.slice(0, 5).join(', ') : 'Not specified'}
+        
+        EXISTING DESCRIPTION (for reference only):
+        ${currentDescription || 'No existing description'}
+        
+        REQUIREMENTS:
+        - Length: 80-120 words
+        - Include: Product benefits, key features, use cases
+        - Tone: Professional yet engaging
+        - SEO: Include main keywords naturally
+        - Structure: Introduction → Features → Benefits → Call to Action
+        - No markdown formatting
+        - End with a compelling call-to-action
+        
+        Focus on why this product is valuable and how it solves problems.
+        `;
+        
+        // Extra description prompt (Indian millennial style)
+        const extraPrompt = `
+        Write an EXTRA quirky Indian millennial-style product description with only 3-4 short reasons.
+        
+        Strict Rules:
+        - Do NOT mention the product name
+        - Do NOT start with any title or heading
+        - Output only 3-4 punchy one-liners
+        - Tone: modern Indian, fun, confident, slightly playful
+        - Inspired by art, colours, and aesthetics
+        - Suitable for men, women, and kids
+        - Mention affordability but NEVER exact numbers
+        - Use comparisons like coffee, movie ticket, dinner, under 1k
+        - Do NOT use: '  "  **  or any special symbols
+        - Keep language simple, clean and commercial
+        
+        Context (for inspiration only):
+        Product Type: ${category || 'General'}
+        Style: ${cat1 || 'Contemporary'}
+        Key Features: ${tags ? tags.slice(0, 3).join(', ') : 'Quality'}
+        
+        Return ONLY the 3-4 one-liners, nothing else.
+        `;
+        
+        // Generate main description
+        const mainResponse = await openai.chat.completions.create({
+            model: "gpt-4.1",
+            messages: [
+                {
+                    role: "user",
+                    content: mainPrompt
+                }
+            ],
+            temperature: 0.7,
+            max_tokens: 300
+        });
+        
+        const mainDescription = mainResponse.choices[0].message.content.trim();
+        
+        // Generate extra description
+        const extraResponse = await openai.chat.completions.create({
+            model: "gpt-4.1",
+            messages: [
+                {
+                    role: "user",
+                    content: extraPrompt
+                }
+            ],
+            temperature: 0.8,
+            max_tokens: 150
+        });
+        
+        let extraDescription = extraResponse.choices[0].message.content.trim();
+        
+        // Clean up extra description
+        extraDescription = extraDescription
+            .replace(/^["']|["']$/g, '') // Remove quotes
+            .replace(/\*\*/g, '') // Remove bold markers
+            .split('\n')
+            .filter(line => line.trim())
+            .slice(0, 4)
+            .join('\n');
+        
+        console.log('Descriptions generated successfully');
+        
+        res.json({
+            success: true,
+            description: mainDescription,
+            extraDescription: extraDescription
+        });
+        
+    } catch (error) {
+        console.error('Description generation error:', error);
+        
+        // Create fallback descriptions
+        const fallbackMain = `Introducing ${req.body.productName || 'this product'}, a premium quality item that combines style and functionality. Perfect for everyday use, it offers great value and reliable performance. ${req.body.category ? `Ideal for ${req.body.category} enthusiasts.` : ''} Get yours today and experience the difference!`;
+        
+        const fallbackExtra = `Looks amazing in any setup\nGreat value for the price\nPerfect for gifting\nTrusted quality`;
+        
+        res.json({ 
+            success: true,
+            description: fallbackMain,
+            extraDescription: fallbackExtra,
+            warning: error.message
+        });
+    }
+});
 // app.post('/chat/history-sheets') - Pagination logic को बदलें
 app.post('/chat/history-sheets', async (req, res) => {
     try {
@@ -3538,12 +4880,12 @@ app.post('/chat/history-sheets', async (req, res) => {
             });
         }
         
-        console.log(`📜 Fetching sheets history for ${phoneNumber}, page ${page}, pageSize ${pageSize}`);
+        console.log(`Fetching sheets history for ${phoneNumber}, page ${page}, pageSize ${pageSize}`);
         
         // Get the Google Sheets client
         const sheets = await getSheets();
         if (!sheets) {
-            console.log('⚠️ Google Sheets not configured, returning empty history');
+            console.log('Google Sheets not configured, returning empty history');
             return res.json({
                 success: true,
                 history: '',
@@ -3556,7 +4898,6 @@ app.post('/chat/history-sheets', async (req, res) => {
         }
         
         try {
-            // Read column headers to find the correct column for this phone number
             const headersResp = await sheets.spreadsheets.values.get({ 
                 spreadsheetId: GOOGLE_SHEET_ID, 
                 range: 'History!1:1' 
@@ -3564,7 +4905,6 @@ app.post('/chat/history-sheets', async (req, res) => {
             
             const headers = (headersResp.data.values && headersResp.data.values[0]) || [];
             
-            // Find the column index for this phone number
             let colIndex = -1;
             for (let i = 0; i < headers.length; i++) {
                 const header = String(headers[i]).trim();
@@ -3587,7 +4927,6 @@ app.post('/chat/history-sheets', async (req, res) => {
                 });
             }
             
-            // Get all values from this column (excluding header)
             const colLetter = String.fromCharCode(65 + colIndex);
             const range = `History!${colLetter}2:${colLetter}`;
             
@@ -3601,10 +4940,8 @@ app.post('/chat/history-sheets', async (req, res) => {
             
             console.log(`Found ${columnValues.length} messages in column`);
             
-            // Parse and filter messages
             const allMessages = [];
             
-            // Google Sheets: index 0 = NEWEST message (row 2), last index = OLDEST message
             columnValues.forEach((cellValue, index) => {
                 if (cellValue && typeof cellValue === 'string' && cellValue.trim()) {
                     const parts = cellValue.split(' | ');
@@ -3624,7 +4961,6 @@ app.post('/chat/history-sheets', async (req, res) => {
                                 messageText = content.substring(10).trim();
                             }
                             
-                            // Parse the timestamp
                             const displayTime = parseIndiaTimeForDisplay(timestamp);
                             
                             allMessages.push({
@@ -3632,7 +4968,7 @@ app.post('/chat/history-sheets', async (req, res) => {
                                 sender: sender,
                                 timestamp: timestamp,
                                 displayTime: displayTime,
-                                sheetIndex: index // 0 = newest, last = oldest
+                                sheetIndex: index 
                             });
                         }
                     }
@@ -3641,95 +4977,54 @@ app.post('/chat/history-sheets', async (req, res) => {
             
             const totalMessages = allMessages.length;
             
-            // **FIXED: CUMULATIVE PAGINATION**
-            // Page 0: 0-10 (newest 10 messages)
-            // Page 1: 0-20 (newest 20 messages)
-            // Page 2: 0-30 (newest 30 messages)
-            
-            // Calculate how many messages to return
             const limit = (page + 1) * pageSize;
             const maxMessages = Math.min(limit, totalMessages);
             
             console.log(`Cumulative pagination: total=${totalMessages}, page=${page}, limit=${limit}, maxMessages=${maxMessages}`);
             
-            // Get newest messages up to the limit
-            // Note: allMessages is already newest first (index 0 = newest)
             let pageMessages = [];
             if (maxMessages > 0) {
-                // Take first 'maxMessages' from the array (newest ones)
                 pageMessages = allMessages.slice(0, maxMessages);
             }
             
-            // Check if there are more OLDER messages
-            // hasMore = true if there are messages beyond current limit
             const hasMore = maxMessages < totalMessages;
             
             console.log(`Returning ${pageMessages.length} messages (0 to ${maxMessages-1}), hasMore=${hasMore}`);
             
-            // For chat, we need OLDEST messages at top, NEWEST at bottom
-            // So we reverse the array before sending
-            // Client will display in reverse order
-            
             return res.json({
                 success: true,
                 history: '',
-                messages: pageMessages, // NEWEST first (0 = newest)
+                messages: pageMessages,
                 hasMore: hasMore,
                 totalMessages: totalMessages,
                 currentPage: page,
                 pageSize: pageSize
             });
-            
         } catch (error) {
-            console.error('❌ Error reading from Google Sheets:', error);
+            console.error('Error reading from Google Sheets:', error);
             return res.status(500).json({
                 success: false,
                 error: 'Failed to read history from Google Sheets',
                 details: error.message
             });
         }
-        
     } catch (error) {
-        console.error('💥 Chat history endpoint error:', error.message);
+        console.error('Chat history endpoint error:', error.message);
         return res.status(500).json({
             success: false,
             error: error.message
         });
     }
 });
-
-// Helper function to parse timestamp string to Date object
-function parseDateFromTimestamp(timestampStr) {
-    try {
-        // timestampStr format: "DD-MM-YYYY HH:MM:SS"
-        const parts = timestampStr.split(' ');
-        if (parts.length < 2) return new Date();
-        
-        const datePart = parts[0]; // DD-MM-YYYY
-        const timePart = parts[1]; // HH:MM:SS
-        
-        const [day, month, year] = datePart.split('-').map(Number);
-        const [hours, minutes, seconds] = timePart.split(':').map(Number);
-        
-        // Create a date object (Note: JavaScript months are 0-indexed)
-        return new Date(year, month - 1, day, hours, minutes, seconds);
-    } catch (error) {
-        console.error('Error parsing timestamp:', timestampStr, error);
-        return new Date();
-    }
-}
-
 // Helper function to format timestamp for display
 function parseIndiaTimeForDisplay(timestampStr) {
     try {
-        // timestampStr format: "DD-MM-YYYY HH:MM:SS"
         const parts = timestampStr.split(' ');
         if (parts.length < 2) return timestampStr;
         
-        const timePart = parts[1]; // HH:MM:SS
+        const timePart = parts[1];
         const [hours, minutes, seconds] = timePart.split(':').map(Number);
         
-        // Format for display: "HH:MM AM/PM"
         let displayHours = hours % 12 || 12;
         const ampm = hours >= 12 ? 'PM' : 'AM';
         
@@ -3739,9 +5034,7 @@ function parseIndiaTimeForDisplay(timestampStr) {
         return timestampStr;
     }
 }
-// -------------------------
-// Clean up expired verifications (24 hours)
-// -------------------------
+
 setInterval(() => {
   const now = Date.now();
   const twentyFourHours = 24 * 60 * 60 * 1000;
@@ -3753,16 +5046,13 @@ setInterval(() => {
       cleanedCount++;
     }
   }
-  
   if (cleanedCount > 0) {
     console.log(`🧹 Cleaned up ${cleanedCount} expired verifications`);
   }
-}, 60 * 60 * 1000); // Run every hour
+}, 60 * 60 * 1000);
 
-// Export for Vercel
 module.exports = app;
 
-// ---- Local development server ----
 if (require.main === module) {
   const PORT = process.env.PORT || 3000;
   app.listen(PORT, '0.0.0.0', () => {

@@ -8,16 +8,24 @@ const preIntentFilter = require('./preintentfilter');
 const { google } = require('googleapis'); 
 const app = express();
 const crypto = require('crypto');
+const fs = require('fs'); 
 const path = require('path');
+const { v4: uuidv4 } = require('uuid');
+const { put } = require('@vercel/blob');
+// Add these requires at the top with other requires
+const productEnhanceRouter = require('./productEnhance');
+const FormData = require('form-data'); // If not already installed: npm install form-data
 
+const CACHE_DIR = path.join(__dirname, 'public', 'ai-cache');
+if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
 
 // Import database functions
 let db;
 try {
   db = require('./requestData');
-  console.log('✅ Database module loaded successfully');
+  console.log('Database module loaded successfully');
 } catch (error) {
-  console.error('❌ Failed to load requestData.js:', error);
+  console.error('Failed to load requestData.js:', error);
   db = {
     getCachedData: async (type) => {
       console.log(`Fallback: getCachedData for ${type}`);
@@ -42,25 +50,20 @@ try {
     }
   };
 }
-// Load admin users (you'll need to create this file)
 let adminUsers = [];
 try {
   adminUsers = require('./adminUser.json');
-  console.log(`✅ Loaded ${adminUsers.length} admin users`);
 } catch (error) {
-  console.log('⚠️ No adminUser.json found, using empty array');
   adminUsers = [];
 }
 
-// Employee numbers (without country code prefix for matching)
 const EMPLOYEE_NUMBERS = [
-  "8368127760",  // 8368127760
-  "9717350080",  // 9717350080
-  "8860924190",  // 8860924190
-  "7483654620"   // 7483654620
+  "8368127760",  
+  "9717350080",  
+  "8860924190",  
+  "7483654620" 
 ];
 
-// OTP Store - store OTPs temporarily
 const otpStore = new Map();
 
 // Middleware
@@ -73,18 +76,11 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || ''
 });
 
-// -------------------------
-// PERSISTED DATA: conversations, csvs
-// -------------------------
-let verifiedUsers = {}; // Add this line
+let verifiedUsers = {};
 let conversations = {}; 
 let galleriesData = [];
 let sellersData = []; 
 let productsData = []; 
-
-// -------------------------
-// OTP Authentication Functions
-// -------------------------
 
 /**
  * Sends an OTP to the provided phone number
@@ -275,7 +271,7 @@ const verifyOtp = async (phoneNumberWithSuffix, otp) => {
         otpStore.delete(phoneNumberWithSuffix);
         otpStore.delete(basePhone);
 
-        console.log(`✅ User ${phoneNumberWithSuffix} verified successfully (dev mode). Admin: ${verifiedUsers[phoneNumberWithSuffix].isAdmin}`);
+        console.log(`User ${phoneNumberWithSuffix} verified successfully (dev mode). Admin: ${verifiedUsers[phoneNumberWithSuffix].isAdmin}`);
         
         return {
           error: false,
@@ -290,7 +286,6 @@ const verifyOtp = async (phoneNumberWithSuffix, otp) => {
       }
     }
 
-    // Real API verification with ZuluShop (use base phone only)
     const formData = new URLSearchParams();
     formData.append('mobile', basePhone);
     formData.append('otp', otp);
@@ -304,7 +299,7 @@ const verifyOtp = async (phoneNumberWithSuffix, otp) => {
         headers: { 
           'Content-Type': 'application/x-www-form-urlencoded' 
         },
-        timeout: 10000 // 10 second timeout
+        timeout: 10000 
       }
     );
 
@@ -315,10 +310,7 @@ const verifyOtp = async (phoneNumberWithSuffix, otp) => {
       throw new Error(data.message || 'OTP verification failed');
     }
 
-    // Check if this number is in admin JSON
     const isAdmin = adminUsers.some(user => user.mobile === basePhone);
-
-    // Mark user as verified with full phone (including suffix)
     verifiedUsers[phoneNumberWithSuffix] = {
       verified: true,
       isAdmin: isAdmin,
@@ -332,7 +324,7 @@ const verifyOtp = async (phoneNumberWithSuffix, otp) => {
     otpStore.delete(phoneNumberWithSuffix);
     otpStore.delete(basePhone);
 
-    console.log(`✅ User ${phoneNumberWithSuffix} verified successfully via API. Admin: ${isAdmin}`);
+    console.log(`User ${phoneNumberWithSuffix} verified successfully via API. Admin: ${isAdmin}`);
     
     return {
       error: false,
@@ -347,18 +339,14 @@ const verifyOtp = async (phoneNumberWithSuffix, otp) => {
   } catch (error) {
     console.error('Error verifying OTP:', error);
     
-    // For development/testing if API fails
     if (error.code === 'ECONNREFUSED' || error.response?.status >= 500) {
       console.log('⚠️ API unavailable, checking against development OTP');
       
-      // Parse phone number and suffix
       const { basePhone, suffix } = parsePhoneNumberWithSuffix(phoneNumberWithSuffix);
       
-      // Try to get stored OTP
       let stored = otpStore.get(phoneNumberWithSuffix) || otpStore.get(basePhone);
       
       if (stored && stored.isDevMode && stored.otp === otp) {
-        // Mark user as verified with full phone (including suffix)
         verifiedUsers[phoneNumberWithSuffix] = {
           verified: true,
           isAdmin: adminUsers.some(user => user.mobile === basePhone),
@@ -367,11 +355,10 @@ const verifyOtp = async (phoneNumberWithSuffix, otp) => {
           basePhone: basePhone
         };
 
-        // Clear OTP from store
         otpStore.delete(phoneNumberWithSuffix);
         otpStore.delete(basePhone);
 
-        console.log(`✅ User ${phoneNumberWithSuffix} verified successfully (dev fallback). Admin: ${verifiedUsers[phoneNumberWithSuffix].isAdmin}`);
+        console.log(`User ${phoneNumberWithSuffix} verified successfully (dev fallback). Admin: ${verifiedUsers[phoneNumberWithSuffix].isAdmin}`);
         
         return {
           error: false,
@@ -475,20 +462,20 @@ const checkAuthentication = (req, res, next) => {
     if (!session) {
       // If it's a guest session and doesn't exist, create it
       if (sessionId.startsWith('guest-')) {
-        console.log(`🔄 Guest session ${sessionId} not found, creating new one`);
+        console.log(`Guest session ${sessionId} not found, creating new one`);
         createOrTouchSession(sessionId, false);
         req.sessionId = sessionId;
         req.isAuthenticated = false;
         next();
       } else {
-        console.log(`❌ Session ${sessionId} not found in conversations`);
+        console.log(`Session ${sessionId} not found in conversations`);
         return res.status(400).json({
           success: false,
           error: 'Invalid session'
         });
       }
     } else {
-      console.log(`✅ Session ${sessionId} found, authenticated: ${session.isAuthenticated || false}`);
+      console.log(`Session ${sessionId} found, authenticated: ${session.isAuthenticated || false}`);
       req.sessionId = sessionId;
       req.isAuthenticated = session.isAuthenticated || false;
       next();
@@ -523,7 +510,7 @@ async function getSheets() {
     await jwt.authorize();
     return google.sheets({ version: 'v4', auth: jwt });
   } catch (e) {
-    console.error('❌ Error initializing Google Sheets client:', e);
+    console.error('Error initializing Google Sheets client:', e);
     return null;
   }
 }
@@ -551,7 +538,7 @@ async function writeCell(colNum, rowNum, value) {
       requestBody: { values: [[value]] }
     });
   } catch (e) {
-    console.error('❌ writeCell error', e);
+    console.error('writeCell error', e);
   }
 }
 
@@ -635,21 +622,16 @@ async function appendUnderColumn(headerName, text) {
     console.log(`📝 Prepended message to column "${headerName}" (${ts})`);
     
   } catch (e) {
-    console.error('❌ appendUnderColumn error', e);
+    console.error('appendUnderColumn error', e);
   }
 }
-
-// -------------------------
-// Helper function to parse India time for display
-// -------------------------
-
 
 // -------------------------
 // ZULU CLUB INFORMATION
 // -------------------------
 const ZULU_CLUB_INFO = `
 Zulu Club is a lifestyle shopping app that delivers fashion, home decor, furniture & more in 100 mins or less.
-Its tagline is: "Lifestyle upgrades, delivered ASAP’. It curates an assortment basis hyprlocal taste & life style choices & offers it to you on our app as well as our showrooms near you."
+Its tagline is: "Lifestyle upgrades, delivered ASAP'. It curates an assortment basis hyprlocal taste & life style choices & offers it to you on our app as well as our showrooms near you."
 Users can discover & shop products on app & get delivery asap in 100 mins or less or they can visit any Zulu stores or , popups in markets near them. 
 They can also watch videos of lifestyle outlets near them & call or WhatsApp chat directly with them without any middlemen.
 The video watch tells us simply what consumers love and we find and locate those best sellers in our app. 
@@ -689,26 +671,21 @@ No paperwork, no catalog, no complexity, it just takes a few videos and you are 
 High-performing products may be curated for bulk buying across partner stores.
 `;
 
-// -------------------------
-// CSV loaders: products + galleries + sellers
-// -------------------------
-// Update the loadProductsData function with proper field mappings
+// ===================== UPDATED CSV LOADERS =====================
+
 async function loadProductsData() {
   try {
-    console.log('📥 Loading products CSV data...');
+    console.log('Loading products CSV data...');
     const response = await axios.get('https://raw.githubusercontent.com/Rishi-Singhal-714/chatbot/main/products.csv', {
       timeout: 60000 
     });
-    
-    console.log('CSV file size:', response.data.length, 'characters');
-    console.log('First 200 chars of CSV:', response.data.substring(0, 200));
-    
+        
     return new Promise((resolve, reject) => {
       const results = [];
       let rowCount = 0;
       
       if (!response.data || response.data.trim().length === 0) {
-        console.log('❌ Empty products CSV received');
+        console.log('Empty products CSV received');
         resolve([]);
         return;
       }
@@ -718,25 +695,37 @@ async function loadProductsData() {
         .pipe(csv())
         .on('data', (data) => {
           rowCount++;
-          
-          // ✅ IMPORTANT: पहले 5 rows के fields देखें
-          if (rowCount <= 5) {
-            console.log(`Row ${rowCount} fields:`, Object.keys(data));
-            console.log(`Row ${rowCount} price value:`, data.price || data.specialPrice || data.price);
-          }
-          
-          // Map CSV columns - try multiple variations
+
+          // Map ALL product fields from CSV
           const mappedData = {
+            // Core fields
             id: data.id || data.ID || data.product_id || '',
             name: data.name || data.Name || data.NAME || data.title || '',
-            price: data.price || data.specialPrice || data.price || data.price || data.PRICE || '',
+            price: data.price || data.PRICE || '',
             image: data.image || data.Image || data.IMAGE || data.image_url || '',
-            tags: data.tags || data.TAGS || data.Tags || data.tag || data.TAG || ''
+            tags: data.tags || data.TAGS || data.Tags || data.tag || data.TAG || '',
+            
+            // Category fields
+            category_id: data.category_id || data.CATEGORY_ID || data['CAT ID'] || '',
+            cat1: data.cat1 || data.CAT1 || '',
+            FINAL_CAT: data.FINAL_CAT || data['FINAL CAT'] || '',
+            FINAL_SUB_CAT: data.FINAL_SUB_CAT || data['FINAL SUB CAT'] || '',
+            FINAL_SUB_SUB_CAT: data.FINAL_SUB_SUB_CAT || data['FINAL SUB SUB CAT'] || '',
+            SUB_CAT_ID: data.SUB_CAT_ID || data['SUB CAT ID'] || '',
+            'SUB CAT ID.1': data['SUB CAT ID.1'] || '',
+            
+            // Additional fields
+            Rel: data.Rel || '',
+            updated_by: data.updated_by || '',
+            TK1: data.TK1 || '',
+            
+            // Raw data for reference
+            raw: data
           };      
           
           // Only include if we have basic info
           if (mappedData.name) {
-            // Clean up tags
+            // Process tags array
             if (mappedData.tags) {
               mappedData.tagsArray = mappedData.tags
                 .split(',')
@@ -746,22 +735,15 @@ async function loadProductsData() {
               mappedData.tagsArray = [];
             }
             
-            // ✅ Process price - CSV में numbers हैं जैसे "4"
+            // Process price
             if (mappedData.price) {
               const priceStr = String(mappedData.price).trim();
               if (priceStr) {
-                // Remove any non-numeric characters
                 const cleaned = priceStr.replace(/[^\d.]/g, '');
                 if (cleaned && !isNaN(parseFloat(cleaned))) {
                   mappedData.price = parseFloat(cleaned);
-                  if (rowCount <= 5) {
-                    console.log(`✅ Row ${rowCount}: Converted "${priceStr}" to ${mappedData.price}`);
-                  }
                 } else {
                   mappedData.price = null;
-                  if (rowCount <= 5) {
-                    console.log(`❌ Row ${rowCount}: Could not convert "${priceStr}" to number`);
-                  }
                 }
               } else {
                 mappedData.price = null;
@@ -774,44 +756,31 @@ async function loadProductsData() {
           }
         })
         .on('end', () => {
-          console.log(`✅ Loaded ${results.length} products from ${rowCount} CSV rows`);
-          
-          // Sample check
-          if (results.length > 0) {
-            console.log('\n=== Checking first 5 products ===');
-            results.slice(0, 5).forEach((p, i) => {
-              console.log(`${i+1}. ${p.name.substring(0, 30)}...`);
-              console.log(`   ID: ${p.id}`);
-              console.log(`   Special Price: ${p.price} (${typeof p.price})`);
-              console.log(`   Image: ${p.image ? 'Yes' : 'No'}`);
-              console.log('');
-            });
-          }
-          
+          console.log(`✅ Loaded ${results.length} products with full field mapping`);
           resolve(results);
         })
         .on('error', (error) => {
-          console.error('❌ Error parsing products CSV:', error);
+          console.error('Error parsing products CSV:', error);
           reject(error);
         });
     });
   } catch (error) {
-    console.error('❌ Error loading products CSV:', error.message);
+    console.error('Error loading products CSV:', error.message);
     return [];
   }
 }
 
 async function loadGalleriesData() {
   try {
-    console.log('📥 Loading galleries CSV data...');
-    const response = await axios.get('https://raw.githubusercontent.com/Rishi-Singhal-714/chatbot/main/galleries.csv', {
+    console.log('Loading galleries CSV data...');
+    const response = await axios.get('https://raw.githubusercontent.com/Rishi-Singhal-714/chatbot/main/galleries3.csv', {
       timeout: 60000 
     });
     
     return new Promise((resolve, reject) => {
       const results = [];
       if (!response.data || response.data.trim().length === 0) {
-        console.log('❌ Empty CSV data received');
+        console.log('Empty CSV data received');
         resolve([]);
         return;
       }
@@ -820,21 +789,32 @@ async function loadGalleriesData() {
       stream
         .pipe(csv())
         .on('data', (data) => {
+          // Map ALL gallery fields
           const mappedData = {
             id: data.id || data.ID || '',
+            type1: data.type1 || data.Type1 || data.TYPE1 || '',
             type2: data.type2 || data.Type2 || data.TYPE2 || '',
+            name: data.name || data.Name || data.NAME || '',
             cat_id: data.cat_id || data.CAT_ID || '',
+            seller_id: data.seller_id || data.SELLER_ID || data.sellerId || data.sellerID || '',
+            status: data.status || data.Status || data.STATUS || '',
             cat1: data.cat1 || data.Cat1 || data.CAT1 || '',
+            componentiIds: data.componentiIds || data.componentIds || '',
+            image1: data.image1 || data.Image1 || data.IMAGE1 || '',
+            shopable_video_ids: data.shopable_video_ids || data.shopableVideoIds || '',
+            store_names: data.store_names || data.storeNames || data['store names'] || '',
+            
+            // Category names
             catname: data.catname || data.Catname || data.CATNAME || '',
             cat1name: data.cat1name || data.Cat1name || data.CAT1NAME || '',
-            seller_id: data.seller_id || data.SELLER_ID || data.Seller_ID || data.SellerId || data.sellerId || '',
-            name: data.name || data.Name || data.NAME || '',
-            image1: data.image1 || data.Image1 || data.IMAGE1 || ''
+            
+            // Raw data for reference
+            raw: data
           };      
           
-          // Check if we have any of the required fields
-          if (mappedData.type2 || mappedData.id || mappedData.name || mappedData.catname || mappedData.cat1name) {
-            // Process category fields - split by comma and clean
+          // Only include if we have some meaningful data
+          if (mappedData.id || mappedData.type2 || mappedData.name) {
+            // Process category arrays
             if (mappedData.catname) {
               mappedData.catnameArray = mappedData.catname
                 .split(',')
@@ -853,50 +833,45 @@ async function loadGalleriesData() {
               mappedData.cat1nameArray = [];
             }
             
+            // Process store names array
+            if (mappedData.store_names) {
+              mappedData.store_names_array = mappedData.store_names
+                .split(',')
+                .map(item => item.trim())
+                .filter(item => item.length > 0);
+            } else {
+              mappedData.store_names_array = [];
+            }
+            
             results.push(mappedData);
           }
         })
         .on('end', () => {
-          console.log(`✅ Loaded ${results.length} galleries from CSV`);
-          
-          // Debug: Show sample data
-          if (results.length > 0) {
-            console.log('\n=== First 3 gallery records ===');
-            results.slice(0, 3).forEach((g, i) => {
-              console.log(`${i+1}. Type2: ${g.type2}`);
-              console.log(`   Name: ${g.name}`);
-              console.log(`   Catname: ${g.catname}`);
-              console.log(`   Cat1name: ${g.cat1name}`);
-              console.log(`   Catname Array: ${JSON.stringify(g.catnameArray)}`);
-              console.log(`   Cat1name Array: ${JSON.stringify(g.cat1nameArray)}`);
-              console.log('');
-            });
-          }
-          
+          console.log(`✅ Loaded ${results.length} galleries with full field mapping`);
           resolve(results);
         })
         .on('error', (error) => {
-          console.error('❌ Error parsing CSV:', error);
+          console.error('Error parsing CSV:', error);
           reject(error);
         });
     });
   } catch (error) {
-    console.error('❌ Error loading CSV data:', error.message);
+    console.error('Error loading CSV data:', error.message);
     return [];
   }
 }
 
 async function loadSellersData() {
   try {
-    console.log('📥 Loading sellers CSV data...');
-    const response = await axios.get('https://raw.githubusercontent.com/Rishi-Singhal-714/chatbot/main/sellers.csv', {
+    console.log('Loading sellers CSV data...');
+    const response = await axios.get('https://raw.githubusercontent.com/Rishi-Singhal-714/chatbot/main/sellers3.csv', {
       timeout: 60000
     });
     
     return new Promise((resolve, reject) => {
       const results = [];
       if (!response.data || response.data.trim().length === 0) {
-        console.log('❌ Empty sellers CSV received');
+        console.log('Empty sellers CSV received');
         resolve([]);
         return;
       }
@@ -905,30 +880,66 @@ async function loadSellersData() {
       stream
         .pipe(csv())
         .on('data', (data) => {
+          // Map ALL seller fields
           const mapped = {
-            seller_id: data.seller_id || data.SELLER_ID || data.id || data.ID || '',
+            id: data.id || data.ID || '',
+            seller_id: data.seller_id || data.SELLER_ID || data.sellerId || '',
             user_id: data.user_id || data.USER_ID || data.userId || data.userID || '',
-            store_name: data.store_name || data.StoreName || data.store || data.Store || '',
             category_ids: data.category_ids || data.CATEGORY_IDS || data.categories || data.Categories || '',
+            store_name: data.store_name || data.StoreName || data.store || data.Store || data['store name'] || '',
+            slider_images: data.slider_images || data.sliderImages || data['slider images'] || '',
+            category_names: data.category_names || data.CATEGORY_NAMES || data['category names'] || '',
+            
+            // Raw data for reference
             raw: data
           };
           
-          if (mapped.seller_id || mapped.store_name) {
-            mapped.category_ids_array = (mapped.category_ids || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+          // Only include if we have some identifier
+          if (mapped.user_id || mapped.seller_id || mapped.store_name) {
+            // Process category IDs array
+            if (mapped.category_ids) {
+              mapped.category_ids_array = mapped.category_ids
+                .split(',')
+                .map(s => s.trim().toLowerCase())
+                .filter(Boolean);
+            } else {
+              mapped.category_ids_array = [];
+            }
+            
+            // Process category names array
+            if (mapped.category_names) {
+              mapped.category_names_array = mapped.category_names
+                .split(',')
+                .map(s => s.trim())
+                .filter(Boolean);
+            } else {
+              mapped.category_names_array = [];
+            }
+            
+            // Process slider images array
+            if (mapped.slider_images) {
+              mapped.slider_images_array = mapped.slider_images
+                .split(',')
+                .map(s => s.trim())
+                .filter(Boolean);
+            } else {
+              mapped.slider_images_array = [];
+            }
+            
             results.push(mapped);
           }
         })
         .on('end', () => {
-          console.log(`✅ Loaded ${results.length} sellers from CSV`);
+          console.log(`✅ Loaded ${results.length} sellers with full field mapping`);
           resolve(results);
         })
         .on('error', (error) => {
-          console.error('❌ Error parsing sellers CSV:', error);
+          console.error('Error parsing sellers CSV:', error);
           reject(error);
         });
     });
   } catch (error) {
-    console.error('❌ Error loading sellers CSV:', error.message);
+    console.error('Error loading sellers CSV:', error.message);
     return [];
   }
 }
@@ -950,11 +961,14 @@ async function loadSellersData() {
   }
 
   try {
-    productsData = await loadProductsData(); // Add this
+    productsData = await loadProductsData();
   } catch (e) {
     console.error('Failed loading products:', e);
     productsData = [];
   }
+  
+  console.log('✅ All data loaded with enhanced field mapping');
+  console.log(`📊 Galleries: ${galleriesData.length}, Sellers: ${sellersData.length}, Products: ${productsData.length}`);
 })();
 
 // -------------------------
@@ -1066,9 +1080,7 @@ async function createAgentTicket(mobileNumber, conversationHistory = []) {
   }
 }
 
-// [Keep all the matching helper functions exactly as they are...]
-// [findKeywordMatchesInCat1, matchSellersByStoreName, matchSellersByCategoryIds, etc.]
-// [These functions should remain exactly the same as in your original code]
+// ===================== IMPROVED MATCHING FUNCTIONS =====================
 
 function normalizeToken(t) {
   if (!t) return '';
@@ -1131,131 +1143,196 @@ function smartSimilarity(a, b) {
   return Math.max(edScore, charOverlap);
 }
 
-function expandCategoryVariants(category) {
-  const norm = normalizeToken(category);
-  const variants = new Set();
-  if (norm) variants.add(norm);
-  
-  // Handle "Dresses, Handbags, Jewellery & Accessories, Sandals" type strings
-  const commaParts = norm.split(',').map(s => s.trim()).filter(s => s.length > 0);
-  for (const part of commaParts) {
-    variants.add(part);
-    
-    // Also handle "&" within each part
-    const ampParts = part.split(/\band\b/).map(s => normalizeToken(s));
-    for (const p of ampParts) {
-      if (p && p.length > 1) variants.add(p.trim());
-    }
-  }
-  
-  // Add singular forms
-  const singularVariants = new Set();
-  variants.forEach(v => {
-    singularVariants.add(v);
-    singularVariants.add(singularize(v));
-  });
-  
-  return Array.from(singularVariants);
-}
-
 const STOPWORDS = new Set(['and','the','for','a','an','of','in','on','to','with','from','shop','buy','category','categories']);
 
-function containsClothingKeywords(userMessage) {
-  const clothingTerms = ['men', 'women', 'kids', 'kid', 'child', 'children', 'man', 'woman', 'boy', 'girl'];
-  const message = (userMessage || '').toLowerCase();
-  return clothingTerms.some(term => message.includes(term));
-}
-
-function findKeywordMatchesInCat1(userMessage) {
+/**
+ * Enhanced function to match galleries with multiple strategies
+ */
+async function matchGalleriesEnhanced(userMessage, conversationHistory = []) {
   if (!userMessage || !galleriesData.length) return [];
   
-  const rawTerms = userMessage
-    .toLowerCase()
-    .replace(/&/g, ' and ')
-    .split(/\s+/)
-    .filter(term => term.length > 1 && !STOPWORDS.has(term));
-    
-  const searchTerms = rawTerms
-    .map(t => singularize(normalizeToken(t)))
-    .filter(t => t.length > 1);
-    
-  const matches = [];
-  const clothingKeywords = ['clothing', 'apparel', 'wear', 'shirt', 'pant', 'dress', 'top', 'bottom', 'jacket', 'sweater'];
+  const query = userMessage.toLowerCase().trim();
   
-  galleriesData.forEach(item => {
-    if (!item.type2 && !item.name && !item.catname && !item.cat1name) return;
+  // Strategy 1: Direct ID matching if query contains ID pattern
+  const idMatch = galleriesData.find(g => query.includes(g.id));
+  if (idMatch) return [idMatch];
+  
+  // Strategy 2: GPT-powered semantic matching
+  const gptMatches = await findGptMatchedCategories(userMessage, conversationHistory);
+  if (gptMatches && gptMatches.length > 0) {
+    return gptMatches;
+  }
+  
+  // Strategy 3: Multi-field keyword matching
+  const keywordMatches = matchGalleriesByMultipleFields(userMessage);
+  if (keywordMatches.length > 0) {
+    return keywordMatches;
+  }
+  
+  // Strategy 4: Type2 partial matching with synonyms
+  const type2Matches = matchGalleriesByType2(userMessage);
+  if (type2Matches.length > 0) {
+    return type2Matches;
+  }
+  
+  // Strategy 5: Name and category matching
+  return matchGalleriesByNameAndCategory(userMessage);
+}
+
+/**
+ * Match galleries using multiple fields with improved logic
+ */
+function matchGalleriesByMultipleFields(userMessage) {
+  const terms = userMessage.toLowerCase()
+    .replace(/[^\w\s&]/g, ' ')
+    .split(/\s+/)
+    .filter(term => term.length > 2 && !STOPWORDS.has(term))
+    .map(term => singularize(normalizeToken(term)));
+  
+  if (terms.length === 0) return [];
+  
+  const matches = [];
+  
+  galleriesData.forEach(gallery => {
+    let score = 0;
+    const matchedFields = new Set();
     
-    // Collect all fields to search
-    const searchFields = [];
-    
-    // Add type2
-    if (item.type2) searchFields.push({ type: 'type2', value: item.type2 });
-    
-    // Add name
-    if (item.name) searchFields.push({ type: 'name', value: item.name });
-    
-    // Add catname (split by comma)
-    if (item.catname) {
-      const catnameParts = item.catname.split(',')
-        .map(c => c.trim())
-        .filter(c => c.length > 0);
-      
-      catnameParts.forEach(catname => {
-        searchFields.push({ type: 'catname', value: catname });
-      });
-    }
-    
-    // Add cat1name (split by comma)
-    if (item.cat1name) {
-      const cat1nameParts = item.cat1name.split(',')
-        .map(c => c.trim())
-        .filter(c => c.length > 0);
-      
-      cat1nameParts.forEach(cat1name => {
-        searchFields.push({ type: 'cat1name', value: cat1name });
-      });
-    }
-    
-    // Also add cat1 if it exists
-    if (item.cat1) {
-      searchFields.push({ type: 'cat1', value: item.cat1 });
-    }
-    
-    let bestScore = 0;
-    let bestTerm = '';
-    let matchedField = '';
-    
-    for (const searchTerm of searchTerms) {
-      for (const field of searchFields) {
-        // Expand variants for the field value
-        const variants = expandCategoryVariants(field.value);
-        
-        for (const variant of variants) {
-          const isClothing = clothingKeywords.some(clothing => variant.includes(clothing));
-          if (isClothing) continue;
-          
-          const sim = smartSimilarity(variant, searchTerm);
-          
-          if (sim > bestScore) {
-            bestScore = sim;
-            bestTerm = searchTerm;
-            matchedField = field.type;
+    // Check type2 field
+    if (gallery.type2) {
+      const fieldTerms = normalizeToken(gallery.type2).split(/\s+/);
+      terms.forEach(queryTerm => {
+        fieldTerms.forEach(fieldTerm => {
+          const similarity = smartSimilarity(fieldTerm, queryTerm);
+          if (similarity > 0.8) {
+            score += similarity;
+            matchedFields.add('type2');
           }
-        }
+        });
+      });
+    }
+    
+    // Check name field
+    if (gallery.name) {
+      const fieldTerms = normalizeToken(gallery.name).split(/\s+/);
+      terms.forEach(queryTerm => {
+        fieldTerms.forEach(fieldTerm => {
+          const similarity = smartSimilarity(fieldTerm, queryTerm);
+          if (similarity > 0.8) {
+            score += similarity;
+            matchedFields.add('name');
+          }
+        });
+      });
+    }
+    
+    // Check catname (split by comma)
+    if (gallery.catname) {
+      gallery.catname.split(',').forEach(cat => {
+        const fieldTerms = normalizeToken(cat).split(/\s+/);
+        terms.forEach(queryTerm => {
+          fieldTerms.forEach(fieldTerm => {
+            const similarity = smartSimilarity(fieldTerm, queryTerm);
+            if (similarity > 0.85) {
+              score += similarity;
+              matchedFields.add('catname');
+            }
+          });
+        });
+      });
+    }
+    
+    // Check cat1name (split by comma)
+    if (gallery.cat1name) {
+      gallery.cat1name.split(',').forEach(cat => {
+        const fieldTerms = normalizeToken(cat).split(/\s+/);
+        terms.forEach(queryTerm => {
+          fieldTerms.forEach(fieldTerm => {
+            const similarity = smartSimilarity(fieldTerm, queryTerm);
+            if (similarity > 0.85) {
+              score += similarity;
+              matchedFields.add('cat1name');
+            }
+          });
+        });
+      });
+    }
+    
+    // Check store_names
+    if (gallery.store_names_array && gallery.store_names_array.length > 0) {
+      gallery.store_names_array.forEach(storeName => {
+        const fieldTerms = normalizeToken(storeName).split(/\s+/);
+        terms.forEach(queryTerm => {
+          fieldTerms.forEach(fieldTerm => {
+            const similarity = smartSimilarity(fieldTerm, queryTerm);
+            if (similarity > 0.85) {
+              score += similarity;
+              matchedFields.add('store_names');
+            }
+          });
+        });
+      });
+    }
+    
+    if (score > 0 && matchedFields.size > 0) {
+      const avgScore = score / terms.length;
+      if (avgScore > 0.5) {
+        matches.push({
+          ...gallery,
+          score: avgScore,
+          matchedFields: Array.from(matchedFields),
+          matchCount: matchedFields.size
+        });
       }
     }
+  });
+  
+  return matches
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      if (b.matchCount !== a.matchCount) return b.matchCount - a.matchCount;
+      return (b.type2 || '').length - (a.type2 || '').length;
+    })
+    .slice(0, 10);
+}
+
+/**
+ * Enhanced type2 matching with partial matches and synonyms
+ */
+function matchGalleriesByType2(userMessage) {
+  const query = normalizeToken(userMessage);
+  const terms = query.split(/\s+/).filter(term => term.length > 2);
+  
+  if (terms.length === 0) return [];
+  
+  const matches = [];
+  
+  galleriesData.forEach(gallery => {
+    if (!gallery.type2) return;
     
-    // Adjust threshold based on matched field
-    const adjustedThreshold = matchedField === 'type2' || matchedField === 'name' ? 0.82 : 0.9;
+    const type2Normalized = normalizeToken(gallery.type2);
+    const type2Terms = type2Normalized.split(/\s+/);
     
-    if (bestScore >= adjustedThreshold) {
-      if (!matches.some(m => m.id === item.id)) {
+    let matchScore = 0;
+    let matchedTerms = [];
+    
+    terms.forEach(queryTerm => {
+      type2Terms.forEach(type2Term => {
+        const similarity = smartSimilarity(type2Term, queryTerm);
+        if (similarity > 0.7) {
+          matchScore += similarity;
+          matchedTerms.push({ queryTerm, type2Term, similarity });
+        }
+      });
+    });
+    
+    if (matchScore > 0) {
+      const avgScore = matchScore / terms.length;
+      if (avgScore > 0.5) {
         matches.push({
-          ...item,
-          matchType: bestScore === 1.0 ? 'exact' : 'similar',
-          matchedTerm: bestTerm,
-          matchedField: matchedField,
-          score: bestScore
+          ...gallery,
+          score: avgScore,
+          matchedTerms,
+          matchType: 'type2'
         });
       }
     }
@@ -1264,182 +1341,839 @@ function findKeywordMatchesInCat1(userMessage) {
   return matches.sort((a, b) => b.score - a.score).slice(0, 10);
 }
 
-const MAX_GPT_SELLER_CHECK = 20;
-const GPT_THRESHOLD = 0.7;
-const GPT_HOME_THRESHOLD = 0.6;
-const CLOTHING_IGNORE_WORDS = ['men','women','kid','kids','child','children','man','woman','boys','girls','mens','womens'];
-
-function stripClothingFromType2(type2) {
-  if (!type2) return type2;
-  let tokens = type2.split(/\s+/);
-  while (tokens.length && CLOTHING_IGNORE_WORDS.includes(tokens[0].toLowerCase().replace(/[^a-z]/g, ''))) {
-    tokens.shift();
-  }
-  return tokens.join(' ').trim();
-}
-
-function matchSellersByStoreName(type2Value, detectedGender = null) {
-  if (!type2Value || !sellersData.length) return [];
-  
-  const stripped = stripClothingFromType2(type2Value);
-  const norm = normalizeToken(stripped);
-  if (!norm) return [];
+/**
+ * Match galleries by name and category
+ */
+function matchGalleriesByNameAndCategory(userMessage) {
+  const query = normalizeToken(userMessage);
+  const terms = query.split(/\s+/);
   
   const matches = [];
-  sellersData.forEach(seller => {
-    const store = seller.store_name || '';
-    const sim = smartSimilarity(store, norm);
-    if (sim < 0.82) return;
+  
+  galleriesData.forEach(gallery => {
+    let score = 0;
+    let matchedField = '';
     
-    if (detectedGender) {
-      const sellerGenders = new Set();
-      (seller.category_ids_array || []).forEach(c => {
-        if (/\bmen\b|\bman\b|\bmens\b/.test(c)) sellerGenders.add('men');
-        if (/\bwomen\b|\bwoman\b|\bwomens\b|ladies/.test(c)) sellerGenders.add('women');
-        if (/\bkid\b|\bkids\b|\bchild\b|\bchildren\b/.test(c)) sellerGenders.add('kids');
-      });
-      
-      if (sellerGenders.size > 0 && !sellerGenders.has(detectedGender)) {
-        return;
+    // Check name
+    if (gallery.name) {
+      const nameNormalized = normalizeToken(gallery.name);
+      const similarity = smartSimilarity(nameNormalized, query);
+      if (similarity > 0.8) {
+        score = similarity;
+        matchedField = 'name';
       }
     }
     
-    matches.push({ seller, score: sim });
+    // Check store_names (if available)
+    if (!score && gallery.store_names_array && gallery.store_names_array.length > 0) {
+      gallery.store_names_array.forEach(storeName => {
+        const storeNormalized = normalizeToken(storeName);
+        const similarity = smartSimilarity(storeNormalized, query);
+        if (similarity > 0.8 && similarity > score) {
+          score = similarity;
+          matchedField = 'store_names';
+        }
+      });
+    }
+    
+    // Check category names
+    if (!score && gallery.catname) {
+      const categories = gallery.catname.split(',');
+      categories.forEach(category => {
+        const catNormalized = normalizeToken(category);
+        const similarity = smartSimilarity(catNormalized, query);
+        if (similarity > 0.85 && similarity > score) {
+          score = similarity;
+          matchedField = 'catname';
+        }
+      });
+    }
+    
+    // Check cat1name
+    if (!score && gallery.cat1name) {
+      const categories = gallery.cat1name.split(',');
+      categories.forEach(category => {
+        const catNormalized = normalizeToken(category);
+        const similarity = smartSimilarity(catNormalized, query);
+        if (similarity > 0.85 && similarity > score) {
+          score = similarity;
+          matchedField = 'cat1name';
+        }
+      });
+    }
+    
+    if (score > 0.8) {
+      matches.push({
+        ...gallery,
+        score,
+        matchedField
+      });
+    }
   });
   
-  return matches.sort((a,b) => b.score - a.score).map(m => ({ ...m.seller, score: m.score })).slice(0, 10);
+  return matches.sort((a, b) => b.score - a.score).slice(0, 10);
 }
 
-function matchSellersByCategoryIds(userMessage, detectedGender = null) {
-  if (!userMessage || !sellersData.length) return [];
+/**
+ * Enhanced seller matching with gallery linkage
+ */
+async function matchSellersEnhanced(userMessage, galleryMatches = [], detectedGender = null) {
+  const sellersMap = new Map();
   
-  const terms = userMessage.toLowerCase().replace(/&/g,' ').split(/[\s,]+/).map(t => t.trim()).filter(Boolean);
+  // Strategy 1: Get sellers from gallery matches
+  if (galleryMatches && galleryMatches.length > 0) {
+    galleryMatches.forEach(gallery => {
+      if (gallery.seller_id) {
+        const sellerIds = String(gallery.seller_id).split(',').map(id => id.trim());
+        sellerIds.forEach(sellerId => {
+          if (sellerId) {
+            const seller = sellersData.find(s => 
+              s.user_id === sellerId || s.seller_id === sellerId
+            );
+            if (seller && !sellersMap.has(seller.user_id || seller.seller_id)) {
+              sellersMap.set(seller.user_id || seller.seller_id, {
+                ...seller,
+                source: 'gallery_link',
+                galleryId: gallery.id
+              });
+            }
+          }
+        });
+      }
+      
+      // Also check store_names in gallery
+      if (gallery.store_names_array && gallery.store_names_array.length > 0) {
+        gallery.store_names_array.forEach(storeName => {
+          if (storeName) {
+            const matchingSellers = sellersData.filter(s => 
+              smartSimilarity(s.store_name || '', storeName) > 0.8
+            );
+            matchingSellers.forEach(seller => {
+              if (!sellersMap.has(seller.user_id || seller.seller_id)) {
+                sellersMap.set(seller.user_id || seller.seller_id, {
+                  ...seller,
+                  source: 'store_name_match',
+                  galleryId: gallery.id
+                });
+              }
+            });
+          }
+        });
+      }
+    });
+  }
+  
+  // Strategy 2: Direct store name matching
+  const storeNameMatches = matchSellersByStoreNameEnhanced(userMessage, detectedGender);
+  storeNameMatches.forEach(seller => {
+    const key = seller.user_id || seller.seller_id;
+    if (!sellersMap.has(key)) {
+      sellersMap.set(key, {
+        ...seller,
+        source: 'direct_store_match'
+      });
+    }
+  });
+  
+  // Strategy 3: Category-based matching
+  const categoryMatches = matchSellersByCategoryEnhanced(userMessage, detectedGender);
+  categoryMatches.forEach(seller => {
+    const key = seller.user_id || seller.seller_id;
+    if (!sellersMap.has(key)) {
+      sellersMap.set(key, {
+        ...seller,
+        source: 'category_match'
+      });
+    }
+  });
+  
+  // Strategy 4: GPT-powered matching (if needed)
+  if (sellersMap.size < 3) {
+    const gptSellers = await matchSellersByGPT(userMessage, detectedGender);
+    gptSellers.forEach(seller => {
+      const key = seller.user_id || seller.seller_id;
+      if (!sellersMap.has(key)) {
+        sellersMap.set(key, {
+          ...seller,
+          source: 'gpt_match'
+        });
+      }
+    });
+  }
+  
+  // Convert to array and limit results
+  const sellers = Array.from(sellersMap.values());
+  
+  // Randomly select 2 sellers if we have many from same gallery
+  if (sellers.length > 2) {
+    const uniqueSellers = [];
+    const seenKeys = new Set();
+    
+    sellers.forEach(seller => {
+      const key = seller.user_id || seller.seller_id;
+      if (!seenKeys.has(key)) {
+        seenKeys.add(key);
+        uniqueSellers.push(seller);
+      }
+    });
+    
+    // If we have more than 2, shuffle and pick 2
+    if (uniqueSellers.length > 2) {
+      const shuffled = [...uniqueSellers].sort(() => Math.random() - 0.5);
+      return shuffled.slice(0, 2);
+    }
+    return uniqueSellers;
+  }
+  
+  return sellers;
+}
+
+/**
+ * Enhanced store name matching
+ */
+function matchSellersByStoreNameEnhanced(query, detectedGender = null) {
+  const normalizedQuery = normalizeToken(query);
+  const queryTerms = normalizedQuery.split(/\s+/).filter(term => term.length > 2);
+  
+  const matches = [];
+  
+  sellersData.forEach(seller => {
+    if (!seller.store_name) return;
+    
+    const storeName = normalizeToken(seller.store_name);
+    const storeTerms = storeName.split(/\s+/);
+    
+    let matchScore = 0;
+    let matchedTerms = [];
+    
+    queryTerms.forEach(queryTerm => {
+      storeTerms.forEach(storeTerm => {
+        const similarity = smartSimilarity(storeTerm, queryTerm);
+        if (similarity > 0.7) {
+          matchScore += similarity;
+          matchedTerms.push({ queryTerm, storeTerm, similarity });
+        }
+      });
+    });
+    
+    // Also check full string match
+    const fullMatchSimilarity = smartSimilarity(storeName, normalizedQuery);
+    if (fullMatchSimilarity > matchScore) {
+      matchScore = fullMatchSimilarity;
+      matchedTerms = [{ queryTerm: normalizedQuery, storeTerm: storeName, similarity: fullMatchSimilarity }];
+    }
+    
+    // Apply gender filter if specified
+    if (detectedGender) {
+      const categories = seller.category_ids_array || [];
+      const hasGenderCategory = categories.some(cat => {
+        if (detectedGender === 'men') return /\bmen\b|\bman\b|\bmens\b/.test(cat);
+        if (detectedGender === 'women') return /\bwomen\b|\bwoman\b|\bwomens\b|ladies/.test(cat);
+        if (detectedGender === 'kids') return /\bkid\b|\bkids\b|\bchild\b|\bchildren\b/.test(cat);
+        return false;
+      });
+      
+      if (!hasGenderCategory) return;
+    }
+    
+    if (matchScore > 0.6) {
+      const avgScore = matchScore / Math.max(queryTerms.length, 1);
+      matches.push({
+        ...seller,
+        score: avgScore,
+        matchedTerms,
+        matchType: 'store_name'
+      });
+    }
+  });
+  
+  return matches.sort((a, b) => b.score - a.score).slice(0, 10);
+}
+
+/**
+ * Enhanced category matching
+ */
+function matchSellersByCategoryEnhanced(query, detectedGender = null) {
+  const normalizedQuery = normalizeToken(query);
+  const queryTerms = normalizedQuery.split(/\s+/);
+  
   const matches = [];
   
   sellersData.forEach(seller => {
     const categories = seller.category_ids_array || [];
+    const categoryNames = seller.category_names_array || [];
     
+    let matchScore = 0;
+    let matchedCategories = [];
+    
+    queryTerms.forEach(queryTerm => {
+      // Check category IDs
+      categories.forEach(category => {
+        const similarity = smartSimilarity(category, queryTerm);
+        if (similarity > 0.8) {
+          matchScore += similarity;
+          matchedCategories.push({ category, queryTerm, similarity });
+        }
+      });
+      
+      // Check category names
+      categoryNames.forEach(categoryName => {
+        const similarity = smartSimilarity(categoryName.trim(), queryTerm);
+        if (similarity > 0.8) {
+          matchScore += similarity;
+          matchedCategories.push({ category: categoryName, queryTerm, similarity });
+        }
+      });
+    });
+    
+    // Apply gender filter if specified
     if (detectedGender) {
-      const sellerHasGender = categories.some(c => /\bmen\b|\bman\b|\bmens\b|\bwomen\b|\bwoman\b|\bwomens\b|\bkid\b|\bkids\b|\bchild\b|\bchildren\b/.test(c));
-      if (sellerHasGender) {
-        const sellerGenderMatch = categories.some(c => {
-          if (detectedGender === 'men') return /\bmen\b|\bman\b|\bmens\b/.test(c);
-          if (detectedGender === 'women') return /\bwomen\b|\bwoman\b|\bwomens\b|ladies\b/.test(c);
-          if (detectedGender === 'kids') return /\bkid\b|\bkids\b|\bchild\b|\bchildren\b/.test(c);
-          return false;
-        });
-        if (!sellerGenderMatch) return;
-      }
+      const hasGenderCategory = categories.some(cat => {
+        if (detectedGender === 'men') return /\bmen\b|\bman\b|\bmens\b/.test(cat);
+        if (detectedGender === 'women') return /\bwomen\b|\bwoman\b|\bwomens\b|ladies/.test(cat);
+        if (detectedGender === 'kids') return /\bkid\b|\bkids\b|\bchild\b|\bchildren\b/.test(cat);
+        return false;
+      });
+      
+      if (!hasGenderCategory) return;
     }
     
-    const common = categories.filter(c => terms.some(t => t.includes(c) || c.includes(t)));
-    if (common.length > 0) {
-      matches.push({ seller, matches: common.length });
+    if (matchScore > 0.6) {
+      const avgScore = matchScore / Math.max(queryTerms.length, 1);
+      matches.push({
+        ...seller,
+        score: avgScore,
+        matchedCategories,
+        matchType: 'category'
+      });
     }
   });
   
-  return matches.sort((a,b) => b.matches - a.matches).map(m => m.seller).slice(0, 10);
+  return matches.sort((a, b) => b.score - a.score).slice(0, 10);
 }
 
-async function isQueryHome(userMessage) {
-  if (!openai || !process.env.OPENAI_API_KEY) return { isHome: false, score: 0 };
+/**
+ * GPT-powered seller matching
+ */
+async function matchSellersByGPT(userMessage, detectedGender = null) {
+  if (!openai || !process.env.OPENAI_API_KEY) return [];
   
-  const prompt = `
-You are a classifier that decides whether a user search query is about HOME / HOME DECOR items (vases, lamps, clocks, showpieces, painting, cushions, any furniture, lighting, decor, etc. these items can be in Hinglish language or Hindi language) or NOT.
-"Give banjara (home décor) when ever any Home Query reflect other wise ignore this line"
-
+  try {
+    // Prepare seller data for GPT
+    const sellersForGPT = sellersData.slice(0, 50).map(seller => ({
+      seller_id: seller.seller_id,
+      user_id: seller.user_id,
+      store_name: seller.store_name || '',
+      category_ids: seller.category_ids || '',
+      category_names: seller.category_names || '',
+      category_ids_array: seller.category_ids_array || []
+    }));
+    
+    const prompt = `
 USER QUERY: "${userMessage}"
 
-Answer ONLY with JSON:
-{ "is_home_score": 0.0, "reasoning": "one-to-three-sentence reasoning why you scored it this way" }
+TASK: Find sellers that are most relevant to what the user is looking for.
+Consider:
+1. Store name relevance
+2. Category match
+3. User's likely intent
 
-Where is_home_score is a number 0.0 - 1.0 representing how strongly this query is home/home-decor related.
-Do not include any text outside the JSON.
-  `;
-  
-  try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: "You are a concise JSON-only classifier that returns only JSON with is_home_score and reasoning." },
-        { role: "user", content: prompt }
-      ],
-      max_tokens: 120,
-      temperature: 0.0
-    });
-    
-    const raw = completion.choices[0].message.content.trim();
-    try {
-      const parsed = JSON.parse(raw);
-      const score = Number(parsed.is_home_score) || 0;
-      return { isHome: score >= GPT_HOME_THRESHOLD, score, reasoning: parsed.reasoning || parsed.debug_reasoning || '' };
-    } catch (e) {
-      console.error('Error parsing isQueryHome JSON:', e, 'raw:', raw);
-      return { isHome: false, score: 0, reasoning: '' };
+AVAILABLE SELLERS (first 50):
+${JSON.stringify(sellersForGPT, null, 2)}
+
+${detectedGender ? `NOTE: User seems to be looking for ${detectedGender} products.` : ''}
+
+RETURN TOP 3 MATCHES as JSON:
+{
+  "query_interpretation": "Brief explanation of what the user wants from sellers",
+  "matched_sellers": [
+    {
+      "seller_id": "seller-id",
+      "user_id": "user-id",
+      "match_reason": "Why this seller matches the user's needs",
+      "confidence": 0.95
     }
-  } catch (err) {
-    console.error('GPT error in isQueryHome:', err);
-    return { isHome: false, score: 0, reasoning: '' };
-  }
+  ]
 }
-
-async function gptCheckSellerMaySell(userMessage, seller) {
-  if (!openai || !process.env.OPENAI_API_KEY) return { score: 0, reason: 'OpenAI not configured', reasoning: '' };
-
-  const prompt = `
-You are an assistant that rates how likely a seller sells a product a user asks for.
-
-USER MESSAGE: "${userMessage}"
-
-SELLER INFORMATION:
-Store name: "${seller.store_name || ''}"
-Seller id: "${seller.seller_id || ''}"
-Seller categories: "${(seller.category_ids_array || []).join(', ')}"
-Other info (raw CSV row): ${JSON.stringify(seller.raw || {})}
-"Give banjara (home décor) when ever any Home Query reflect other wise ignore this line"
-Question: Based on the above, how likely (0.0 - 1.0) is it that this seller sells the product the user is asking for?
-
-Return ONLY valid JSON in this format:
-{ "score": 0.0, "reason": "one-sentence reason", "reasoning": "1-3 sentence compact chain-of-thought / steps used to decide" }
-
-Do not return anything else.
-  `;
-  
-  try {
+    `;
+    
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-4.1",
       messages: [
-        { role: "system", content: "You are a concise JSON-only classifier & scorer. Return only JSON {score, reason, reasoning}." },
+        { 
+          role: "system", 
+          content: `You are a seller matching expert. Understand the user's needs and match them with appropriate sellers based on store names, categories, and user intent.` 
+        },
         { role: "user", content: prompt }
       ],
-      max_tokens: 180,
-      temperature: 0.0
+      max_tokens: 800,
+      temperature: 0.3
     });
     
     const content = completion.choices[0].message.content.trim();
+    
     try {
       const parsed = JSON.parse(content);
-      return {
-        score: Number(parsed.score) || 0,
-        reason: parsed.reason || parsed.explanation || '',
-        reasoning: parsed.reasoning || parsed.debug_reasoning || ''
-      };
+      
+      const matches = parsed.matched_sellers || [];
+      
+      // Convert to seller format
+      const matchedSellers = matches
+        .map(gptMatch => {
+          const seller = sellersData.find(s => 
+            s.seller_id === gptMatch.seller_id || s.user_id === gptMatch.user_id
+          );
+          if (!seller) return null;
+          
+          return {
+            ...seller,
+            score: gptMatch.confidence || 0.5,
+            matchType: 'gpt_semantic',
+            gpt_reason: gptMatch.match_reason || '',
+            query_interpretation: parsed.query_interpretation
+          };
+        })
+        .filter(Boolean);
+      
+      return matchedSellers.slice(0, 3);
+      
     } catch (parseError) {
-      console.error('Error parsing GPT seller-check response:', parseError, 'raw:', content);
-      return { score: 0, reason: 'GPT response could not be parsed', reasoning: content.slice(0, 300) };
+      console.error('Error parsing GPT seller response:', parseError);
+      return [];
     }
+    
   } catch (error) {
-    console.error('Error during GPT seller-check:', error);
-    return { score: 0, reason: 'GPT error', reasoning: '' };
+    console.error('GPT seller matching error:', error);
+    return [];
   }
 }
 
-function getUserIdForSellerId(sellerId) {
-  if (!sellerId) return '';
-  const s = sellersData.find(x => (x.seller_id && String(x.seller_id) === String(sellerId)));
-  if (s && s.user_id && String(s.user_id).trim().length > 0) return String(s.user_id).trim();
-  return String(sellerId).trim();
+/**
+ * SMART PRODUCT MATCHING WITH GPT SEMANTIC UNDERSTANDING
+ */
+async function matchProductsEnhanced(userMessage, conversationHistory = []) {
+  if (!userMessage || !productsData.length) {
+    console.log('No user message or products data available');
+    return [];
+  }
+  
+  console.log(`🤔 Smart product matching for: "${userMessage}"`);
+  
+  // Strategy 1: GPT Semantic Understanding (Primary)
+  console.log('🎯 Using GPT for semantic understanding...');
+  const gptSemanticMatches = await matchProductsByGPTsemantic(userMessage, conversationHistory);
+  
+  if (gptSemanticMatches && gptSemanticMatches.length > 0) {
+    console.log(`✅ GPT semantic found ${gptSemanticMatches.length} matches`);
+    return gptSemanticMatches;
+  }
+  
+  // Strategy 2: Multi-field keyword matching
+  console.log('🔍 Falling back to multi-field keyword matching...');
+  const keywordMatches = matchProductsByMultipleFields(userMessage);
+  
+  if (keywordMatches.length > 0) {
+    console.log(`✅ Keyword matching found ${keywordMatches.length} matches`);
+    return keywordMatches;
+  }
+  
+  // Strategy 3: Tag-based matching
+  console.log('🏷️ Trying tag-based matching...');
+  const tagMatches = matchProductsByTags(userMessage);
+  
+  if (tagMatches.length > 0) {
+    console.log(`✅ Tag matching found ${tagMatches.length} matches`);
+    return tagMatches;
+  }
+  
+  // Strategy 4: Category-based matching
+  console.log('📂 Trying category-based matching...');
+  const categoryMatches = matchProductsByCategory(userMessage);
+  
+  return categoryMatches;
 }
+
+/**
+ * GPT Semantic Product Matching
+ */
+async function matchProductsByGPTsemantic(userMessage, conversationHistory = []) {
+  if (!openai || !process.env.OPENAI_API_KEY) {
+    console.log('OpenAI not configured for semantic matching');
+    return [];
+  }
+  
+  try {
+    // Prepare enriched product data
+    const productsForGPT = productsData.slice(0, 150).map(product => {
+      // Extract category information
+      const finalCat = product.FINAL_CAT || product.FINAL_SUB_CAT || product.FINAL_SUB_SUB_CAT || '';
+      const category = product.category_id || product.cat1 || '';
+      
+      return {
+        id: product.id,
+        name: product.name || '',
+        tags: product.tagsArray || [],
+        price: product.price || 0,
+        category: category,
+        final_category: finalCat,
+        description: `Product: ${product.name}. Categories: ${category} ${finalCat ? `(${finalCat})` : ''}. Tags: ${product.tagsArray ? product.tagsArray.join(', ') : ''}`
+      };
+    });
+    
+    // Include conversation context if available
+    let context = '';
+    if (conversationHistory && conversationHistory.length > 0) {
+      const recentHistory = conversationHistory.slice(-5);
+      context = `Recent conversation context:\n${recentHistory.map(msg => `${msg.role}: ${msg.content}`).join('\n')}`;
+    }
+    
+    const prompt = `
+USER QUERY: "${userMessage}"
+
+${context}
+
+TASK: Understand the user's REAL INTENT and find products that match SEMANTICALLY.
+Consider:
+1. What the user MEANS, not just what they say
+2. Synonyms and related terms
+3. Category relevance
+4. Product attributes and features
+5. Price range implications
+
+KEY FIELDS TO CONSIDER:
+- name: Product name
+- tags: Descriptive keywords (colors, styles, occasions, materials)
+- category: Main category
+- final_category: Specific sub-category
+
+EXAMPLE INTERPRETATIONS:
+- "party wear" → dresses, formal wear, evening wear, sparkly items
+- "summer clothes" → cotton, light fabrics, t-shirts, shorts
+- "gift for wife" → jewelry, perfume, handbags, luxury items
+- "home decor" → vases, lamps, wall art, cushions
+
+AVAILABLE PRODUCTS (first 150):
+${JSON.stringify(productsForGPT, null, 2)}
+
+RETURN TOP 5 MATCHES as JSON:
+{
+  "query_interpretation": "Deep understanding of what the user wants",
+  "search_strategy": "How you approached matching",
+  "matched_products": [
+    {
+      "id": "product-id",
+      "match_reason": "Detailed explanation of why this matches semantically",
+      "confidence": 0.95,
+      "matched_fields": ["name", "tags", "category"]
+    }
+  ]
+}
+    `;
+    
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4.1",  // Using GPT-4 for better understanding
+      messages: [
+        { 
+          role: "system", 
+          content: `You are a product search expert with deep semantic understanding.
+          Think step by step:
+          1. Analyze the user's true intent
+          2. Consider synonyms and related concepts
+          3. Match products based on meaning, not just keywords
+          4. Explain your reasoning clearly
+          
+          Focus on what the user REALLY wants, not just surface-level keywords.` 
+        },
+        { role: "user", content: prompt }
+      ],
+      max_tokens: 1500,
+      temperature: 0.2
+    });
+    
+    const content = completion.choices[0].message.content.trim();
+    
+    try {
+      const parsed = JSON.parse(content);
+      
+      console.log(`🤖 GPT Query Interpretation: "${parsed.query_interpretation}"`);
+      console.log(`🔍 Search Strategy: "${parsed.search_strategy}"`);
+      
+      const matches = parsed.matched_products || [];
+      
+      // Convert to product format with enhanced information
+      const matchedProducts = matches
+        .map(gptMatch => {
+          const product = productsData.find(p => p.id === gptMatch.id);
+          if (!product) return null;
+          
+          // Get category information
+          const category = product.category_id || product.cat1 || '';
+          const finalCategory = product.FINAL_CAT || product.FINAL_SUB_CAT || product.FINAL_SUB_SUB_CAT || '';
+          
+          return {
+            id: product.id,
+            name: product.name,
+            price: product.price || null,
+            image: product.image || null,
+            tagsArray: product.tagsArray || [],
+            category: category,
+            final_category: finalCategory,
+            score: gptMatch.confidence || 0.5,
+            matchedFields: gptMatch.matched_fields || ['gpt_semantic'],
+            gpt_reason: gptMatch.match_reason || '',
+            query_interpretation: parsed.query_interpretation,
+            search_strategy: parsed.search_strategy,
+            raw: product
+          };
+        })
+        .filter(Boolean);
+      
+      console.log(`✅ Semantic matching returned ${matchedProducts.length} products`);
+      return matchedProducts.slice(0, 5);
+      
+    } catch (parseError) {
+      console.error('❌ Error parsing GPT semantic response:', parseError);
+      console.log('Raw response snippet:', content.substring(0, 200));
+      return [];
+    }
+    
+  } catch (error) {
+    console.error('❌ GPT semantic matching error:', error);
+    return [];
+  }
+}
+
+/**
+ * Multi-field product matching
+ */
+function matchProductsByMultipleFields(userMessage) {
+  const query = normalizeToken(userMessage);
+  const queryTerms = query.split(/\s+/).filter(term => term.length > 2);
+  
+  if (queryTerms.length === 0) return [];
+  
+  const matches = [];
+  
+  productsData.forEach(product => {
+    let score = 0;
+    const matchedFields = new Set();
+    
+    // Match by name
+    if (product.name) {
+      const nameTerms = normalizeToken(product.name).split(/\s+/);
+      queryTerms.forEach(queryTerm => {
+        nameTerms.forEach(nameTerm => {
+          const similarity = smartSimilarity(nameTerm, queryTerm);
+          if (similarity > 0.7) {
+            score += similarity;
+            matchedFields.add('name');
+          }
+        });
+      });
+    }
+    
+    // Match by tags
+    if (product.tagsArray && product.tagsArray.length > 0) {
+      product.tagsArray.forEach(tag => {
+        const tagTerms = normalizeToken(tag).split(/\s+/);
+        queryTerms.forEach(queryTerm => {
+          tagTerms.forEach(tagTerm => {
+            const similarity = smartSimilarity(tagTerm, queryTerm);
+            if (similarity > 0.8) {
+              score += similarity;
+              matchedFields.add('tags');
+            }
+          });
+        });
+      });
+    }
+    
+    // Match by category
+    const categoryFields = [
+      product.category_id,
+      product.cat1,
+      product.FINAL_CAT,
+      product.FINAL_SUB_CAT,
+      product.FINAL_SUB_SUB_CAT
+    ].filter(Boolean);
+    
+    categoryFields.forEach(category => {
+      const categoryTerms = normalizeToken(String(category)).split(/\s+/);
+      queryTerms.forEach(queryTerm => {
+        categoryTerms.forEach(catTerm => {
+          const similarity = smartSimilarity(catTerm, queryTerm);
+          if (similarity > 0.85) {
+            score += similarity;
+            matchedFields.add('category');
+          }
+        });
+      });
+    });
+    
+    // Match by sub category IDs
+    const subCatFields = [
+      product.SUB_CAT_ID,
+      product['SUB CAT ID.1']
+    ].filter(Boolean);
+    
+    subCatFields.forEach(subCat => {
+      const similarity = smartSimilarity(String(subCat), query);
+      if (similarity > 0.9) {
+        score += similarity;
+        matchedFields.add('sub_category');
+      }
+    });
+    
+    if (score > 0 && matchedFields.size > 0) {
+      const avgScore = score / queryTerms.length;
+      if (avgScore > 0.5) {
+        matches.push({
+          ...product,
+          score: avgScore,
+          matchedFields: Array.from(matchedFields),
+          matchCount: matchedFields.size
+        });
+      }
+    }
+  });
+  
+  return matches
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      if (b.matchCount !== a.matchCount) return b.matchCount - a.matchCount;
+      return (b.name || '').length - (a.name || '').length;
+    })
+    .slice(0, 10);
+}
+
+/**
+ * Tag-based product matching
+ */
+function matchProductsByTags(userMessage) {
+  const query = normalizeToken(userMessage);
+  const queryTerms = query.split(/\s+/);
+  
+  const matches = [];
+  
+  productsData.forEach(product => {
+    if (!product.tagsArray || product.tagsArray.length === 0) return;
+    
+    let tagScore = 0;
+    let matchedTags = [];
+    
+    queryTerms.forEach(queryTerm => {
+      product.tagsArray.forEach(tag => {
+        const tagNormalized = normalizeToken(tag);
+        const similarity = smartSimilarity(tagNormalized, queryTerm);
+        
+        if (similarity > 0.8) {
+          tagScore += similarity;
+          matchedTags.push({ tag, queryTerm, similarity });
+        }
+        
+        // Also check if tag contains the query term
+        if (tagNormalized.includes(queryTerm) || queryTerm.includes(tagNormalized)) {
+          tagScore += 0.7;
+          matchedTags.push({ tag, queryTerm, similarity: 0.7 });
+        }
+      });
+    });
+    
+    if (tagScore > 0) {
+      const avgScore = tagScore / Math.max(queryTerms.length, 1);
+      if (avgScore > 0.5) {
+        matches.push({
+          ...product,
+          score: avgScore,
+          matchedTags,
+          matchType: 'tags'
+        });
+      }
+    }
+  });
+  
+  return matches.sort((a, b) => b.score - a.score).slice(0, 10);
+}
+
+/**
+ * Category-based product matching
+ */
+function matchProductsByCategory(userMessage) {
+  const query = normalizeToken(userMessage);
+  
+  const matches = [];
+  
+  productsData.forEach(product => {
+    // Check all category-related fields
+    const categoryFields = [
+      { field: 'category_id', value: product.category_id },
+      { field: 'cat1', value: product.cat1 },
+      { field: 'FINAL_CAT', value: product.FINAL_CAT },
+      { field: 'FINAL_SUB_CAT', value: product.FINAL_SUB_CAT },
+      { field: 'FINAL_SUB_SUB_CAT', value: product.FINAL_SUB_SUB_CAT }
+    ];
+    
+    let bestScore = 0;
+    let bestField = '';
+    
+    categoryFields.forEach(({ field, value }) => {
+      if (value) {
+        const similarity = smartSimilarity(String(value), query);
+        if (similarity > bestScore) {
+          bestScore = similarity;
+          bestField = field;
+        }
+      }
+    });
+    
+    if (bestScore > 0.7) {
+      matches.push({
+        ...product,
+        score: bestScore,
+        matchedField: bestField,
+        matchType: 'category'
+      });
+    }
+  });
+  
+  return matches.sort((a, b) => b.score - a.score).slice(0, 10);
+}
+
+/**
+ * Enhanced function to link galleries with sellers
+ */
+function linkGalleriesWithSellers(galleryMatches) {
+  if (!galleryMatches || !galleryMatches.length) return [];
+  
+  const linkedSellers = new Map();
+  
+  galleryMatches.forEach(gallery => {
+    if (gallery.seller_id) {
+      const sellerIds = String(gallery.seller_id).split(',').map(id => id.trim());
+      
+      sellerIds.forEach(sellerId => {
+        if (sellerId && !linkedSellers.has(sellerId)) {
+          const seller = sellersData.find(s => 
+            s.user_id === sellerId || s.seller_id === sellerId
+          );
+          
+          if (seller) {
+            linkedSellers.set(sellerId, {
+              ...seller,
+              gallery_linked: true,
+              linked_gallery_id: gallery.id,
+              linked_gallery_name: gallery.type2 || gallery.name
+            });
+          }
+        }
+      });
+    }
+  });
+  
+  return Array.from(linkedSellers.values());
+}
+
+// ===================== UPDATED HELPER FUNCTIONS =====================
 
 function inferGenderFromCategories(matchedCategories = []) {
   if (!Array.isArray(matchedCategories) || matchedCategories.length === 0) return null;
@@ -1478,628 +2212,6 @@ function inferGenderFromCategories(matchedCategories = []) {
   if (winners.length === 1) return winners[0];
   
   return null;
-}
-function matchGalleriesByAllFields(userMessage) {
-  if (!userMessage || !galleriesData.length) return [];
-  
-  const searchTerms = userMessage
-    .toLowerCase()
-    .replace(/&/g, ' and ')
-    .split(/[\s,]+/)
-    .filter(term => term.length > 2 && !STOPWORDS.has(term))
-    .map(t => singularize(normalizeToken(t)));
-  
-  if (searchTerms.length === 0) return [];
-  
-  const matches = [];
-  
-  galleriesData.forEach(item => {
-    let totalScore = 0;
-    let matchedFields = [];
-    
-    // Check each field and collect scores
-    searchTerms.forEach(term => {
-      // Check type2
-      if (item.type2) {
-        const sim = smartSimilarity(item.type2, term);
-        if (sim > 0.8) {
-          totalScore += sim;
-          if (!matchedFields.includes('type2')) matchedFields.push('type2');
-        }
-      }
-      
-      // Check name
-      if (item.name) {
-        const sim = smartSimilarity(item.name, term);
-        if (sim > 0.8) {
-          totalScore += sim;
-          if (!matchedFields.includes('name')) matchedFields.push('name');
-        }
-      }
-      
-      // Check catname array
-      if (item.catnameArray && item.catnameArray.length > 0) {
-        item.catnameArray.forEach(cat => {
-          const sim = smartSimilarity(cat, term);
-          if (sim > 0.85) {
-            totalScore += sim;
-            if (!matchedFields.includes('catname')) matchedFields.push('catname');
-          }
-        });
-      }
-      
-      // Check cat1name array
-      if (item.cat1nameArray && item.cat1nameArray.length > 0) {
-        item.cat1nameArray.forEach(cat => {
-          const sim = smartSimilarity(cat, term);
-          if (sim > 0.85) {
-            totalScore += sim;
-            if (!matchedFields.includes('cat1name')) matchedFields.push('cat1name');
-          }
-        });
-      }
-    });
-    
-    // Calculate average score
-    if (matchedFields.length > 0) {
-      const avgScore = totalScore / searchTerms.length;
-      if (avgScore > 0.7) {
-        matches.push({
-          ...item,
-          score: avgScore,
-          matchedFields: matchedFields,
-          matchCount: matchedFields.length
-        });
-      }
-    }
-  });
-  
-  // Sort by score and match count
-  return matches
-    .sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
-      return b.matchCount - a.matchCount;
-    })
-    .slice(0, 10);
-}
-async function findSellersForQuery(userMessage, galleryMatches = [], detectedGender = null) {
-  const homeCheck = await isQueryHome(userMessage);
-  const applyHomeFilter = homeCheck.isHome;
-  
-  if (!detectedGender) {
-    detectedGender = inferGenderFromCategories(galleryMatches);
-  }
-  
-  const sellers_by_type2 = new Map();
-  for (const gm of galleryMatches) {
-    const type2 = gm.type2 || '';
-    const found = matchSellersByStoreName(type2, detectedGender);
-    found.forEach(s => sellers_by_type2.set(s.seller_id || (s.store_name+'#'), s));
-  }
-  
-  const catMatches = matchSellersByCategoryIds(userMessage, detectedGender);
-  const sellers_by_category = new Map();
-  catMatches.forEach(s => sellers_by_category.set(s.seller_id || (s.store_name+'#'), s));
-  
-  if (applyHomeFilter) {
-    const homeSyns = ['home','decor','home decor','home-decor','home_decor','furniture','homeaccessories','home-accessories','home_accessories','decoratives','showpiece','showpieces','lamp','lamps','vase','vases','clock','clocks','cushion','cushions'];
-    const keepIfHome = (s) => {
-      const arr = s.category_ids_array || [];
-      return arr.some(c => {
-        const cc = c.toLowerCase();
-        return homeSyns.some(h => cc.includes(h) || h.includes(cc));
-      });
-    };
-    
-    for (const [k, s] of Array.from(sellers_by_type2.entries())) {
-      if (!keepIfHome(s)) sellers_by_type2.delete(k);
-    }
-    
-    for (const [k, s] of Array.from(sellers_by_category.entries())) {
-      if (!keepIfHome(s)) sellers_by_category.delete(k);
-    }
-  }
-  
-  const candidateIds = new Set([...sellers_by_type2.keys(), ...sellers_by_category.keys()]);
-  const candidateList = [];
-  
-  if (candidateIds.size === 0) {
-    if (applyHomeFilter) {
-      for (const s of sellersData) {
-        const arr = s.category_ids_array || [];
-        if (arr.some(c => c.includes('home') || c.includes('decor') || c.includes('furnit') || c.includes('vase') || c.includes('lamp') || c.includes('clock'))) {
-          candidateList.push(s);
-          if (candidateList.length >= MAX_GPT_SELLER_CHECK) break;
-        }
-      }
-    }
-    
-    for (let i = 0; i < Math.min(MAX_GPT_SELLER_CHECK, sellersData.length) && candidateList.length < MAX_GPT_SELLER_CHECK; i++) {
-      const s = sellersData[i];
-      if (!s) continue;
-      
-      if (detectedGender) {
-        const categories = s.category_ids_array || [];
-        const sellerHasGender = categories.some(c => /\bmen\b|\bman\b|\bmens\b|\bwomen\b|\bwoman\b|\bwomens\b|\bkid\b|\bkids\b|\bchild\b|\bchildren\b/.test(c));
-        if (sellerHasGender) {
-          const genderMatch = detectedGender === 'men' ? categories.some(c => /\bmen\b|\bman\b|\bmens\b/.test(c))
-                          : detectedGender === 'women' ? categories.some(c => /\bwomen\b|\bwoman\b|\bwomens\b|ladies\b/.test(c))
-                          : categories.some(c => /\bkid\b|\bkids\b|\bchild\b|\bchildren\b/.test(c));
-          if (!genderMatch) continue;
-        }
-      }
-      
-      if (!candidateList.includes(s)) candidateList.push(s);
-    }
-  } else {
-    for (const id of candidateIds) {
-      const s = sellersData.find(x => (x.seller_id == id) || ((x.store_name+'#') == id));
-      if (s) candidateList.push(s);
-    }
-    
-    if (candidateList.length < MAX_GPT_SELLER_CHECK) {
-      for (const s of sellersData) {
-        if (candidateList.length >= MAX_GPT_SELLER_CHECK) break;
-        if (!candidateList.includes(s)) {
-          if (detectedGender) {
-            const categories = s.category_ids_array || [];
-            const sellerHasGender = categories.some(c => /\bmen\b|\bman\b|\bmens\b|\bwomen\b|\bwoman\b|\bwomens\b|\bkid\b|\bkids\b|\bchild\b|\bchildren\b/.test(c));
-            if (sellerHasGender) {
-              const genderMatch = detectedGender === 'men' ? categories.some(c => /\bmen\b|\bman\b|\bmens\b/.test(c))
-                            : detectedGender === 'women' ? categories.some(c => /\bwomen\b|\bwoman\b|\bwomens\b|ladies\b/.test(c))
-                            : categories.some(c => /\bkid\b|\bkids\b|\bchild\b|\bchildren\b/.test(c));
-              if (!genderMatch) continue;
-            }
-          }
-          candidateList.push(s);
-        }
-      }
-    }
-  }
-  
-  const sellers_by_gpt = [];
-  const toCheck = candidateList.slice(0, MAX_GPT_SELLER_CHECK);
-  const gptPromises = toCheck.map(async (seller) => {
-    if (applyHomeFilter) {
-      const arr = seller.category_ids_array || [];
-      const isHome = arr.some(c => 
-        c.includes("home") || c.includes("decor") || 
-        c.includes("lamp") || c.includes("vase") || 
-        c.includes("clock") || c.includes("furnit")
-      );
-      if (!isHome) return null;
-    }
-    
-    const result = await gptCheckSellerMaySell(userMessage, seller);
-    if (result.score > GPT_THRESHOLD) {
-      return { seller, score: result.score, reason: result.reason };
-    }
-    return null;
-  });
-  
-  const gptResults = await Promise.all(gptPromises);
-  gptResults.forEach(r => {
-    if (r) sellers_by_gpt.push(r);
-  });
-  
-  const sellersType2Arr = Array.from(sellers_by_type2.values()).slice(0, 10);
-  const sellersCategoryArr = Array.from(sellers_by_category.values()).slice(0, 10);
-  
-  return {
-    by_type2: sellersType2Arr,
-    by_category: sellersCategoryArr,
-    by_gpt: sellers_by_gpt,
-    homeCheck
-  };
-}
-
-function urlEncodeType2(t) {
-  if (!t) return '';
-  return encodeURIComponent(t.trim().replace(/\s+/g, ' ')).replace(/%20/g, '%20');
-}
-
-// Add this function after the findSellersForQuery function
-async function searchProductsForQuery(userMessage) {
-  if (!userMessage || !productsData.length) {
-    console.log('No user message or products data available');
-    return [];
-  }
-  
-  console.log(`🔍 Searching products for: "${userMessage}"`);
-  console.log(`📊 Total products in database: ${productsData.length}`);
-  
-  try {
-    // FIRST: Use GPT to understand the query meaning and find products
-    console.log('🤖 Using GPT to understand query meaning...');
-    const gptMatches = await gptMatchProducts(userMessage);
-    
-    if (gptMatches && gptMatches.length > 0) {
-      console.log(`✅ GPT found ${gptMatches.length} semantic matches`);
-      
-      // Also do keyword matching as backup
-      const keywordMatches = await getKeywordMatches(userMessage);
-      
-      // Combine and deduplicate results (GPT matches first)
-      const allMatches = [...gptMatches];
-      const gptIds = new Set(gptMatches.map(p => p.id));
-      
-      // Add keyword matches that aren't already in GPT results
-      keywordMatches.forEach(match => {
-        if (!gptIds.has(match.id)) {
-          allMatches.push(match);
-        }
-      });
-      
-      return allMatches.slice(0, 5);
-    }
-    
-    // If GPT fails, fallback to keyword matching
-    console.log('⚠️ GPT failed, using keyword matching...');
-    return await getKeywordMatches(userMessage);
-    
-  } catch (error) {
-    console.error('❌ Error in searchProductsForQuery:', error);
-    return await getKeywordMatches(userMessage);
-  }
-}
-
-// Helper function for keyword matching
-async function getKeywordMatches(userMessage) {
-  const searchTerms = userMessage
-    .toLowerCase()
-    .split(/\s+/)
-    .filter(term => term.length > 1);
-  
-  if (searchTerms.length === 0) return [];
-  
-  const keywordMatches = [];
-  const exactMatches = [];
-  
-  productsData.forEach((product) => {
-    if (!product || !product.name) return;
-    
-    const productName = product.name.toLowerCase();
-    const productTags = product.tagsArray || [];
-    
-    let score = 0;
-    let matchedFields = [];
-    
-    // Check each search term
-    searchTerms.forEach(term => {
-      // Check in name
-      if (productName.includes(term)) {
-        score += 0.7;
-        matchedFields.push('name');
-      }
-      
-      // Check in tags
-      if (productTags.some(tag => tag.includes(term))) {
-        score += 0.5;
-        matchedFields.push('tags');
-      }
-    });
-    
-    // Also check if any tag contains the entire query
-    const queryLower = userMessage.toLowerCase();
-    if (productTags.some(tag => tag.includes(queryLower))) {
-      score += 1.0;
-      matchedFields.push('tags_full_query');
-    }
-    
-    if (score > 0.4) {
-      const match = {
-        id: product.id,
-        name: product.name,
-        price: product.price || null,
-        image: product.image || null,
-        tagsArray: product.tagsArray || [],
-        score: score,
-        matchedFields: matchedFields,
-        raw: product
-      };
-      
-      keywordMatches.push(match);
-      
-      if (score > 1.0 || matchedFields.includes('tags_full_query')) {
-        exactMatches.push(match);
-      }
-    }
-  });
-  
-  if (exactMatches.length > 0) {
-    console.log(`✅ Found ${exactMatches.length} exact tag matches`);
-    return exactMatches.sort((a, b) => b.score - a.score).slice(0, 5);
-  }
-  
-  if (keywordMatches.length > 0) {
-    console.log(`✅ Found ${keywordMatches.length} keyword matches`);
-    return keywordMatches.sort((a, b) => b.score - a.score).slice(0, 5);
-  }
-  
-  return [];
-}
-
-// Improved GPT matching with better semantic understanding
-async function gptMatchProducts(userMessage) {
-  if (!openai || !process.env.OPENAI_API_KEY) {
-    console.log('⚠️ OpenAI not configured');
-    return [];
-  }
-  
-  try {
-    // Prepare comprehensive product data for GPT
-    const productsForGpt = productsData.slice(0, 200).map(product => ({
-      id: product.id,
-      name: product.name || '',
-      tags: product.tagsArray || [],
-      price: product.price || 0,
-      category_hints: product.tagsArray ? product.tagsArray.join(', ') : ''
-    }));
-    
-    const prompt = `
-USER QUERY: "${userMessage}"
-
-TASK: Find products that match the USER'S INTENT and MEANING, not just keywords.
-
-THINK STEP BY STEP:
-1. Understand what the user REALLY wants:
-   - Are they looking for a specific item type?
-   - What features/attributes are they mentioning?
-   - What's the context or use case?
-
-2. Match based on SEMANTIC MEANING:
-   - "handbag" = purse, tote, clutch, shoulder bag
-   - "blue shirt" = any shirt that's blue (not just exact words)
-   - "party wear" = festive, glittery, elegant, evening wear
-   - "comfy shoes" = slippers, sneakers, flats
-   - "home decor" = vases, lamps, showpieces, paintings
-
-3. Use product TAGS as descriptors:
-   - Tags describe color, style, occasion, material, etc.
-   - Match the user's intent to relevant tags
-
-4. Consider synonyms and related terms:
-   - "sofa" = couch, settee
-   - "tshirt" = t-shirt, tee, top
-   - "makeup" = cosmetics, beauty products
-
-AVAILABLE PRODUCTS (first 200):
-${JSON.stringify(productsForGpt, null, 2)}
-
-RETURN TOP 5 MATCHES as JSON:
-{
-  "query_interpretation": "Brief explanation of what the user wants",
-  "matched_products": [
-    {
-      "id": "product-id",
-      "match_reason": "Why this matches the user's intent semantically",
-      "confidence": 0.95
-    }
-  ]
-}
-    `;
-    
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o",  // Using GPT-4 for better understanding
-      messages: [
-        { 
-          role: "system", 
-          content: `You are a product search expert. Understand the user's REAL intent and match products semantically, not just by keywords.
-          Consider synonyms, context, and product attributes. Focus on what the user MEANS, not just what they SAY.` 
-        },
-        { role: "user", content: prompt }
-      ],
-      max_tokens: 1000,
-      temperature: 0.2
-    });
-    
-    const content = completion.choices[0].message.content.trim();
-    
-    try {
-      const parsed = JSON.parse(content);
-      
-      console.log(`🤖 GPT Query Interpretation: "${parsed.query_interpretation}"`);
-      
-      const matches = parsed.matched_products || [];
-      
-      // Convert to product format
-      const matchedProducts = matches
-        .map(gptMatch => {
-          const product = productsData.find(p => p.id === gptMatch.id);
-          if (!product) return null;
-          
-          return {
-            id: product.id,
-            name: product.name,
-            price: product.price || null,
-            image: product.image || null,
-            tagsArray: product.tagsArray || [],
-            score: gptMatch.confidence || 0.5,
-            matchedFields: ['gpt_semantic'],
-            gpt_reason: gptMatch.match_reason || '',
-            query_interpretation: parsed.query_interpretation
-          };
-        })
-        .filter(Boolean);
-      
-      return matchedProducts.slice(0, 5);
-      
-    } catch (parseError) {
-      console.error('❌ Error parsing GPT response:', parseError, 'Raw:', content.substring(0, 200));
-      return [];
-    }
-    
-  } catch (error) {
-    console.error('❌ GPT product matching error:', error);
-    return [];
-  }
-}
-// Replace the existing buildConciseResponse function with this updated version:
-
-function buildConciseResponse(userMessage, galleryMatches = [], sellersObj = {}, productMatches = []) {
-  console.log('Building response with:', {
-    productMatches: productMatches.length,
-    galleryMatches: galleryMatches.length,
-    sellersCount: sellersObj ? Object.keys(sellersObj).length : 0
-  });
-  
-  // Prepare products data for response
-  const products = productMatches.slice(0, 5).map((product, index) => {
-    // Generate product link using product id
-    let productLink = '';
-    if (product.id) {
-      // Clean the ID - remove any non-numeric characters
-      const cleanId = String(product.id).replace(/[^\d]/g, '');
-      if (cleanId) {
-        productLink = `https://app.zulu.club/featured/product?id=${cleanId}`;
-      }
-    }
-    
-    // Handle price
-    let priceDisplay = 'Price on request';
-    
-    // Check if price exists
-    if (product.price !== undefined && product.price !== null) {
-      console.log(`Processing price for product ${index}: ${product.price}`);
-      
-      // Try to convert to number - CSV me sirf numbers hain jaise "4"
-      const priceValue = product.price;
-      console.log(`Raw price value: ${priceValue}, Type: ${typeof priceValue}`);
-      
-      // If it's already a number
-      if (typeof priceValue === 'number') {
-        priceDisplay = `${priceValue}`;
-        console.log(`Formatted from number: ${priceDisplay}`);
-      }
-      // If it's a string
-      else if (typeof priceValue === 'string') {
-        // Remove any non-numeric characters (just in case)
-        const cleanedPrice = priceValue.replace(/[^\d.]/g, '');
-        console.log(`Cleaned price string: ${cleanedPrice}`);
-        
-        if (cleanedPrice && !isNaN(parseFloat(cleanedPrice))) {
-          const priceNum = parseFloat(cleanedPrice);
-          priceDisplay = `${priceNum}`;
-          console.log(`Formatted from string: ${priceDisplay}`);
-        }
-      }
-    } else {
-      console.log(`Product ${index} has no price or it's null/undefined`);
-    }
-    
-    // Handle image URL
-    let imageUrl = null;
-    if (product.image && product.image.trim() !== '') {
-      if (product.image.startsWith('/')) {
-        imageUrl = `https://zulushop.in${product.image}`;
-      } else if (product.image.startsWith('http')) {
-        imageUrl = product.image;
-      }
-    }
-    
-    // Fallback image if none available
-    if (!imageUrl) {
-      imageUrl = 'https://via.placeholder.com/150x200/1a2733/ffffff?text=Product';
-    }
-    
-    return {
-      id: product.id || `product-${index}`,
-      name: product.name || 'Product',
-      price: priceDisplay,
-      image: imageUrl,
-      link: productLink,
-      score: product.score || 0,
-      matchedVia: product.matchedFields || [],
-      gptReason: product.gpt_reason || ''  // Add this line
-    };
-  });
-  
-  // Prepare galleries data for response
-  const galleries = galleryMatches.slice(0, 5).map((gallery, index) => {
-    const galleryId = gallery.id || '';
-    let link = '';
-    
-    if (galleryId) {
-      link = `https://app.zulu.club/gallery/id=${galleryId}`;
-    } else if (gallery.type2) {
-      link = `https://app.zulu.club/${urlEncodeType2(gallery.type2)}`;
-    } else if (gallery.name) {
-      link = `https://app.zulu.club/${urlEncodeType2(gallery.name)}`;
-    }
-    
-    let imageUrl = null;
-    if (gallery.image1 && gallery.image1.trim() !== '') {
-      if (gallery.image1.startsWith('/')) {
-        imageUrl = `https://zulushop.in${gallery.image1}`;
-      } else if (gallery.image1.startsWith('http')) {
-        imageUrl = gallery.image1;
-      }
-    }
-    
-    if (!imageUrl) {
-      imageUrl = 'https://via.placeholder.com/150x200/1a2733/ffffff?text=Gallery';
-    }
-    
-    return {
-      id: gallery.id || `gallery-${index}`,
-      name: gallery.type2 || gallery.name || 'Gallery',
-      link: link,
-      image: imageUrl,
-      type: gallery.type2 || '',
-      category: gallery.cat1 || gallery.catname || gallery.cat1name || '',
-      matchedFields: gallery.matchedFields || [],
-      matchScore: gallery.score || 0
-    };
-  });
-  
-  // Prepare sellers data for response
-  const sellersList = [];
-  const addSeller = (s) => {
-    if (!s) return;
-    const id = s.user_id || s.seller_id || '';
-    if (!id) return;
-    if (!sellersList.some(x => (x.user_id || x.seller_id) === id)) sellersList.push(s);
-  };
-  
-  (sellersObj.by_type2 || []).forEach(addSeller);
-  (sellersObj.by_category || []).forEach(addSeller);
-  (sellersObj.by_gpt || []).forEach(item => addSeller(item.seller));
-  
-  const sellers = sellersList.slice(0, 5).map((seller, index) => {
-    const sellerId = seller.user_id || seller.seller_id || '';
-    let sellerLink = '';
-    
-    if (sellerId) {
-      sellerLink = `https://app.zulu.club/sellerassets/${sellerId}`;
-    }
-    
-    return {
-      id: sellerId || `seller-${index}`,
-      name: seller.store_name || `Seller ${index + 1}`,
-      link: sellerLink,
-      categories: seller.category_ids_array || []
-    };
-  });
-  
-  // Create response text
-  let textResponse = `Based on your search for "${userMessage}":\n\n`;
-  
-  if (products.length === 0 && galleries.length === 0 && sellers.length === 0) {
-    textResponse += `No results found for "${userMessage}". Try searching with different keywords.`;
-  }
-  
-  // Debug log
-  console.log('Products for response:', products);
-  
-  // Return structured response
-  return {
-    type: 'structured',
-    text: textResponse,
-    products: products,
-    galleries: galleries,
-    sellers: sellers,
-    query: userMessage
-  };
 }
 
 async function findGptMatchedCategories(userMessage, conversationHistory = []) {
@@ -2187,6 +2299,7 @@ RESPONSE FORMAT (JSON ONLY):
     return [];
   }
 }
+
 async function classifyAndMatchWithGPT(userMessage) {
   const text = (userMessage || '').trim();
   if (!text) {
@@ -2435,7 +2548,8 @@ Join as partner 👉 https://forms.gle/tvkaKncQMs29dPrPA
   return res.choices[0].message.content.trim();
 }
 
-// Session/history helpers
+// ===================== SESSION/HISTORY HELPERS =====================
+
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24; // 24 hours
 const SESSION_CLEANUP_MS = 1000 * 60 * 5; // 5 minutes
 const MAX_HISTORY_MESSAGES = 2000;
@@ -2454,11 +2568,11 @@ function createOrTouchSession(sessionId, isAuthenticated = false) {
       lastMedia: null,
       isAuthenticated: isAuthenticated
     };
-    console.log(`✅ Created new session: ${sessionId}`);
+    console.log(`Created new session: ${sessionId}`);
   } else {
     conversations[sessionId].lastActive = nowMs();
     conversations[sessionId].isAuthenticated = isAuthenticated || conversations[sessionId].isAuthenticated;
-    console.log(`✅ Updated existing session: ${sessionId}`);
+    console.log(`Updated existing session: ${sessionId}`);
   }
   
   return conversations[sessionId];
@@ -2481,13 +2595,13 @@ function appendToSessionHistory(sessionId, role, content) {
   }
   
   conversations[sessionId].lastActive = nowMs();
-  console.log(`✅ History updated for ${sessionId}, total messages: ${conversations[sessionId].history.length}`);
+  console.log(`History updated for ${sessionId}, total messages: ${conversations[sessionId].history.length}`);
 }
 
 function getFullSessionHistory(sessionId) {
   const s = conversations[sessionId];
   if (!s || !s.history) {
-    console.log(`❌ No history found for session: ${sessionId}`);
+    console.log(`No history found for session: ${sessionId}`);
     return [];
   }
   return s.history.slice();
@@ -2509,19 +2623,230 @@ function purgeExpiredSessions() {
 
 setInterval(purgeExpiredSessions, SESSION_CLEANUP_MS);
 
-function recentHistoryContainsProductSignal(conversationHistory = []) {
-  if (!Array.isArray(conversationHistory) || conversationHistory.length === 0) return null;
+// ===================== UPDATED PRODUCT INTENT HANDLER =====================
+
+async function handleProductIntentEnhanced(sessionId, userMessage, session) {
+  session.lastDetectedIntent = 'product';
+  session.lastDetectedIntentTs = nowMs();
   
-  const productKeywords = ['tshirt','t-shirt','shirt','tee','jeans','pant','pants','trouser','kurta','lehenga','top','dress','saree','innerwear','jacket','sweater','shorts','tshir','t shrt'];
-  const recentUserMsgs = conversationHistory.slice(-10).filter(m => m.role === 'user').map(m => (m.content || '').toLowerCase());
+  // Get gallery matches using enhanced function
+  const galleryMatches = await matchGalleriesEnhanced(userMessage, session.history);
   
-  for (const msg of recentUserMsgs) {
-    for (const pk of productKeywords) {
-      if (msg.includes(pk)) return true;
+  // Get seller matches (including gallery-linked sellers)
+  const linkedSellers = linkGalleriesWithSellers(galleryMatches);
+  const sellerMatches = await matchSellersEnhanced(userMessage, galleryMatches);
+  
+  // Combine linked sellers and matched sellers
+  const allSellersMap = new Map();
+  
+  // Add linked sellers first
+  linkedSellers.forEach(seller => {
+    const key = seller.user_id || seller.seller_id;
+    allSellersMap.set(key, { ...seller, source: 'gallery_linked' });
+  });
+  
+  // Add matched sellers
+  sellerMatches.forEach(seller => {
+    const key = seller.user_id || seller.seller_id;
+    if (!allSellersMap.has(key)) {
+      allSellersMap.set(key, { ...seller, source: 'matched' });
+    }
+  });
+  
+  // Get product matches using enhanced semantic matching
+  const productMatches = await matchProductsEnhanced(userMessage, session.history);
+  
+  // Prepare final sellers array
+  const allSellers = Array.from(allSellersMap.values());
+  
+  // If we have many sellers, pick up to 2 random ones
+  let finalSellers = allSellers;
+  if (allSellers.length > 2) {
+    const shuffled = [...allSellers].sort(() => Math.random() - 0.5);
+    finalSellers = shuffled.slice(0, 2);
+  }
+  
+  return buildConciseResponse(
+    userMessage, 
+    galleryMatches, 
+    { 
+      by_gallery_link: linkedSellers,
+      by_matching: sellerMatches,
+      all: finalSellers 
+    }, 
+    productMatches
+  );
+}
+
+function buildConciseResponse(userMessage, galleryMatches = [], sellersObj = {}, productMatches = []) {
+  console.log('Building response with:', {
+    productMatches: productMatches.length,
+    galleryMatches: galleryMatches.length,
+    sellersCount: sellersObj ? Object.keys(sellersObj).length : 0
+  });
+  
+  // Prepare products data for response
+  const products = productMatches.slice(0, 5).map((product, index) => {
+    // Generate product link using product id
+    let productLink = '';
+    if (product.id) {
+      // Clean the ID - remove any non-numeric characters
+      const cleanId = String(product.id).replace(/[^\d]/g, '');
+      if (cleanId) {
+        productLink = `https://app.zulu.club/featured/product?id=${cleanId}`;
+      }
+    }
+    
+    // Handle price
+    let priceDisplay = 'Price on request';
+    
+    // Check if price exists
+    if (product.price !== undefined && product.price !== null) {
+      console.log(`Processing price for product ${index}: ${product.price}`);
+      
+      // Try to convert to number - CSV me sirf numbers hain jaise "4"
+      const priceValue = product.price;
+      console.log(`Raw price value: ${priceValue}, Type: ${typeof priceValue}`);
+      
+      // If it's already a number
+      if (typeof priceValue === 'number') {
+        priceDisplay = `${priceValue}`;
+        console.log(`Formatted from number: ${priceDisplay}`);
+      }
+      // If it's a string
+      else if (typeof priceValue === 'string') {
+        // Remove any non-numeric characters (just in case)
+        const cleanedPrice = priceValue.replace(/[^\d.]/g, '');
+        console.log(`Cleaned price string: ${cleanedPrice}`);
+        
+        if (cleanedPrice && !isNaN(parseFloat(cleanedPrice))) {
+          const priceNum = parseFloat(cleanedPrice);
+          priceDisplay = `${priceNum}`;
+          console.log(`Formatted from string: ${priceDisplay}`);
+        }
+      }
+    } else {
+      console.log(`Product ${index} has no price or it's null/undefined`);
+    }
+    
+    // Handle image URL
+    let imageUrl = null;
+    if (product.image && product.image.trim() !== '') {
+      if (product.image.startsWith('/')) {
+        imageUrl = `https://zulushop.in${product.image}`;
+      } else if (product.image.startsWith('http')) {
+        imageUrl = product.image;
+      }
+    }
+    
+    // Fallback image if none available
+    if (!imageUrl) {
+      imageUrl = 'https://via.placeholder.com/150x200/1a2733/ffffff?text=Product';
+    }
+    
+    return {
+      id: product.id || `product-${index}`,
+      name: product.name || 'Product',
+      price: priceDisplay,
+      image: imageUrl,
+      link: productLink,
+      score: product.score || 0,
+      matchedVia: product.matchedFields || [],
+      gptReason: product.gpt_reason || '',
+      query_interpretation: product.query_interpretation || '',
+      search_strategy: product.search_strategy || ''
+    };
+  });
+  
+  // Prepare galleries data for response
+  const galleries = galleryMatches.slice(0, 5).map((gallery, index) => {
+    const galleryId = gallery.id || '';
+    let link = '';
+    
+    if (galleryId) {
+      link = `https://app.zulu.club/gallery/id=${galleryId}`;
+    } else if (gallery.type2) {
+      link = `https://app.zulu.club/${encodeURIComponent(gallery.type2.trim().replace(/\s+/g, ' '))}`;
+    } else if (gallery.name) {
+      link = `https://app.zulu.club/${encodeURIComponent(gallery.name.trim().replace(/\s+/g, ' '))}`;
+    }
+    
+    let imageUrl = null;
+    if (gallery.image1 && gallery.image1.trim() !== '') {
+      if (gallery.image1.startsWith('/')) {
+        imageUrl = `https://zulushop.in${gallery.image1}`;
+      } else if (gallery.image1.startsWith('http')) {
+        imageUrl = gallery.image1;
+      }
+    }
+    
+    if (!imageUrl) {
+      imageUrl = 'https://via.placeholder.com/150x200/1a2733/ffffff?text=Gallery';
+    }
+    
+    return {
+      id: gallery.id || `gallery-${index}`,
+      name: gallery.type2 || gallery.name || 'Gallery',
+      link: link,
+      image: imageUrl,
+      type: gallery.type2 || '',
+      category: gallery.cat1 || gallery.catname || gallery.cat1name || '',
+      matchedFields: gallery.matchedFields || [],
+      matchScore: gallery.score || 0,
+      seller_id: gallery.seller_id || null
+    };
+  });
+  
+  // Prepare sellers data for response
+  const sellers = (sellersObj.all || []).slice(0, 5).map((seller, index) => {
+    const sellerId = seller.user_id || seller.seller_id || '';
+    let sellerLink = '';
+    
+    if (sellerId) {
+      sellerLink = `https://app.zulu.club/sellerassets/${sellerId}`;
+    }
+    
+    return {
+      id: sellerId || `seller-${index}`,
+      name: seller.store_name || `Seller ${index + 1}`,
+      link: sellerLink,
+      categories: seller.category_ids_array || [],
+      source: seller.source || 'unknown',
+      gallery_linked: seller.gallery_linked || false,
+      linked_gallery_id: seller.linked_gallery_id || null,
+      linked_gallery_name: seller.linked_gallery_name || null
+    };
+  });
+  
+  // Create response text
+  let textResponse = `Based on your search for "${userMessage}":\n\n`;
+  
+  if (products.length === 0 && galleries.length === 0 && sellers.length === 0) {
+    textResponse += `No results found for "${userMessage}". Try searching with different keywords.`;
+  } else {
+    if (products.length > 0) {
+      textResponse += `Found ${products.length} products matching your query.\n`;
+    }
+    if (galleries.length > 0) {
+      textResponse += `Found ${galleries.length} galleries/categories.\n`;
+    }
+    if (sellers.length > 0) {
+      textResponse += `Found ${sellers.length} sellers who might have what you're looking for.`;
     }
   }
   
-  return false;
+  // Debug log
+  console.log('Products for response:', products);
+  
+  // Return structured response
+  return {
+    type: 'structured',
+    text: textResponse,
+    products: products,
+    galleries: galleries,
+    sellers: sellers,
+    query: userMessage
+  };
 }
 
 async function getChatGPTResponse(sessionId, userMessage, isAuthenticated = false) {
@@ -2650,87 +2975,17 @@ For more details, please contact our support team.`;
       return await generateInvestorResponse(userMessage);
     }
     
-// In the getChatGPTResponse function, update the product intent section:
-if (intent === 'product' && galleriesData.length > 0) {
-  if (session.lastDetectedIntent !== 'product') {
-    session.lastDetectedIntent = 'product';
-    session.lastDetectedIntentTs = nowMs();
-  }
-  
-  const keywordMatches = matchGalleriesByAllFields(userMessage);
-  const matchedIds = (classification.matches || []).map(m => m.id).filter(Boolean);
-  const matchedType2s = (classification.matches || []).map(m => m.type2).filter(Boolean);
-  let matchedCategories = [];
-  
-  if (keywordMatches.length > 0) {
-    matchedCategories = keywordMatches;
-  } else {
-    // Fallback to the original matching
-    matchedCategories = findKeywordMatchesInCat1(userMessage);
-  }
-  
-  if (matchedIds.length > 0) {
-    matchedCategories = matchedIds
-      .map(id => galleriesData.find(g => String(g.id).trim() === String(id).trim()))
-      .filter(Boolean);
-  }
-  
-  if (matchedCategories.length === 0 && matchedType2s.length > 0) {
-    matchedCategories = matchedType2s
-      .map(t => galleriesData.find(g => String(g.type2).trim() === String(t).trim()))
-      .filter(Boolean)
-      .slice(0,5);
-  }
-  
-  if (matchedCategories.length === 0) {
-    const fullHistory = getFullSessionHistory(sessionId);
-    matchedCategories = await findGptMatchedCategories(userMessage, fullHistory);
-  } else {
-    const fullHistory = getFullSessionHistory(sessionId);
-    const isShortOrQualifier = (msg) => {
-      if (!msg) return false;
-      const trimmed = String(msg).trim();
-      if (trimmed.split(/\s+/).length <= 3) return true;
-      if (trimmed.length <= 12) return true;
-      return false;
-    };
-    
-    if (isShortOrQualifier(userMessage)) {
-      const refined = await findGptMatchedCategories(userMessage, fullHistory);
-      if (refined && refined.length > 0) matchedCategories = refined;
+    // 6) Handle product intent with enhanced matching
+    if (intent === 'product' && galleriesData.length > 0) {
+      return await handleProductIntentEnhanced(sessionId, userMessage, session);
     }
-  }
-  
-  if (matchedCategories.length === 0) {
-    if (containsClothingKeywords(userMessage)) {
-      const fullHistory = getFullSessionHistory(sessionId);
-      matchedCategories = await findGptMatchedCategories(userMessage, fullHistory);
-    } else {
-      const keywordMatches = findKeywordMatchesInCat1(userMessage);
-      if (keywordMatches.length > 0) {
-        matchedCategories = keywordMatches;
-      } else {
-        const fullHistory = getFullSessionHistory(sessionId);
-        matchedCategories = await findGptMatchedCategories(userMessage, fullHistory);
-      }
-    }
-  }
-  
-  const detectedGender = inferGenderFromCategories(matchedCategories);
-  const sellers = await findSellersForQuery(userMessage, matchedCategories, detectedGender);
-  
-  // Search for products based on user query
-  const products = await searchProductsForQuery(userMessage); // ✅ Add "await" here!
-
-  return buildConciseResponse(userMessage, matchedCategories, sellers, products);
-}
     
     // Default: company response
     return await generateCompanyResponse(userMessage, getFullSessionHistory(sessionId), companyInfo = ZULU_CLUB_INFO);
     
   } catch (error) {
-    console.error('❌ getChatGPTResponse error:', error);
-    return `⚠️ Sorry, I encountered an error. Please try again.`;
+    console.error('getChatGPTResponse error:', error);
+    return `Sorry, I encountered an error. Please try again.`;
   }
 }
 
@@ -2740,7 +2995,7 @@ async function handleMessage(sessionId, userMessage, isAuthenticated = false) {
   try {
     // Add validation for sessionId
     if (!sessionId) {
-      console.error('❌ handleMessage called with undefined sessionId');
+      console.error('handleMessage called with undefined sessionId');
       throw new Error('Session ID is required');
     }
     
@@ -2810,12 +3065,12 @@ async function handleMessage(sessionId, userMessage, isAuthenticated = false) {
     };
   } 
   catch (error) {
-    console.error('❌ Error handling message:', error);
+    console.error('Error handling message:', error);
     return {
       success: false,
       response: {
         type: 'text',
-        text: '⚠️ Sorry, I encountered an error. Please try again.'
+        text: 'Sorry, I encountered an error. Please try again.'
       },
       responseType: 'text',
       timestamp: new Date().toISOString(),
@@ -2824,9 +3079,8 @@ async function handleMessage(sessionId, userMessage, isAuthenticated = false) {
     };
   }
 }
-// -------------------------
-// OTP Authentication Endpoints
-// -------------------------
+
+// ===================== REMAINING CODE (UNCHANGED) =====================
 
 /**
  * Send OTP to phone number
@@ -2877,7 +3131,7 @@ app.post('/auth/verify-otp', async (req, res) => {
       });
     }
 
-    console.log(`🔐 Verifying OTP for: ${phoneNumber}`);
+    console.log(`Verifying OTP for: ${phoneNumber}`);
     
     const result = await verifyOtp(phoneNumber, otp);
     
@@ -2972,10 +3226,21 @@ app.post('/auth/logout', async (req, res) => {
   }
 });
 
+
+app.use(productEnhanceRouter);
+// Add middleware to make db available to routes
+app.use((req, res, next) => {
+  req.app.locals.db = {
+    getConnection: async () => {
+      // Return a database connection from your pool
+      return await pool.getConnection();
+    }
+  };
+  next();
+});
 // -------------------------
 // Chat API Endpoints
 // -------------------------
-
 // Serve chat interface
 app.get('/chat', (req, res) => {
   res.sendFile(__dirname + '/chat.html');
@@ -2988,10 +3253,10 @@ app.post('/chat/message', checkAuthentication, async (req, res) => {
     const isAuthenticated = req.isAuthenticated;
     const { message } = req.body;
     
-    console.log(`💬 Chat message from ${sessionId} (Authenticated: ${isAuthenticated}): ${message}`);
+    console.log(`Chat message from ${sessionId} (Authenticated: ${isAuthenticated}): ${message}`);
     
     if (!sessionId) {
-      console.error('❌ sessionId is undefined in /chat/message endpoint');
+      console.error('sessionId is undefined in /chat/message endpoint');
       return res.status(400).json({
         success: false,
         error: 'Session ID is required'
@@ -3012,7 +3277,7 @@ app.post('/chat/message', checkAuthentication, async (req, res) => {
     return res.json(result);
     
   } catch (error) {
-    console.error('💥 Chat API error:', error.message);
+    console.error('Chat API error:', error.message);
     return res.status(500).json({
       success: false,
       error: error.message
@@ -3029,7 +3294,7 @@ app.post('/chat/create-session', (req, res) => {
     // Create session
     createOrTouchSession(sessionId, false);
     
-    console.log(`🎁 Created unauthenticated session: ${sessionId}`);
+    console.log(`Created unauthenticated session: ${sessionId}`);
     
     return res.json({
       success: true,
@@ -3052,14 +3317,14 @@ app.post('/chat/create-session', (req, res) => {
 app.get('/chat/history/:sessionId', async (req, res) => {
   try {
     const { sessionId } = req.params;
-    console.log(`📜 Getting history for session: ${sessionId}`);
+    console.log(`Getting history for session: ${sessionId}`);
     
     let session = conversations[sessionId];
     let isAuthenticated = false;
     
     // If session doesn't exist but it's a guest session, create it
     if (!session && sessionId.startsWith('guest-')) {
-      console.log(`🔄 Session ${sessionId} not found, creating new guest session`);
+      console.log(`Session ${sessionId} not found, creating new guest session`);
       session = createOrTouchSession(sessionId, false);
     }
     
@@ -3067,7 +3332,7 @@ app.get('/chat/history/:sessionId', async (req, res) => {
       isAuthenticated = session.isAuthenticated;
       const history = getFullSessionHistory(sessionId);
       
-      console.log(`📜 Session ${sessionId} exists, history length: ${history.length}, authenticated: ${isAuthenticated}`);
+      console.log(`Session ${sessionId} exists, history length: ${history.length}, authenticated: ${isAuthenticated}`);
       
       return res.json({
         success: true,
@@ -3088,7 +3353,7 @@ app.get('/chat/history/:sessionId', async (req, res) => {
         isAuthenticated: false
       });
     } else {
-      console.log(`❌ Session ${sessionId} not found and is not a guest session or phone number`);
+      console.log(`Session ${sessionId} not found and is not a guest session or phone number`);
       return res.status(400).json({
         success: false,
         error: 'Invalid session'
@@ -3096,7 +3361,7 @@ app.get('/chat/history/:sessionId', async (req, res) => {
     }
     
   } catch (error) {
-    console.error('💥 Chat history error:', error.message);
+    console.error('Chat history error:', error.message);
     return res.status(500).json({
       success: false,
       error: error.message
@@ -3117,7 +3382,7 @@ app.get('/api/categories', async (req, res) => {
       count: data.length
     });
   } catch (error) {
-    console.error('❌ Error fetching categories:', error);
+    console.error('Error fetching categories:', error);
     res.status(500).json({
       success: false,
       error: error.message
@@ -3203,7 +3468,7 @@ app.get('/api/product-stats-by-updater', async (req, res) => {
       lastUpdated: new Date().toISOString()
     });
   } catch (error) {
-    console.error('❌ Error fetching product stats by updater:', error);
+    console.error('Error fetching product stats by updater:', error);
     res.status(500).json({
       success: false,
       error: error.message
@@ -3226,7 +3491,7 @@ app.post('/api/refresh-connection', (req, res) => {
       });
     }
   } catch (error) {
-    console.error('❌ Error refreshing connection:', error);
+    console.error('Error refreshing connection:', error);
     res.status(500).json({
       success: false,
       error: error.message
@@ -3250,7 +3515,7 @@ app.post('/api/close-connection', (req, res) => {
       });
     }
   } catch (error) {
-    console.error('❌ Error closing connection:', error);
+    console.error('Error closing connection:', error);
     res.status(500).json({
       success: false,
       error: error.message
@@ -3274,13 +3539,37 @@ app.post('/api/create-connection', (req, res) => {
       });
     }
   } catch (error) {
-    console.error('❌ Error creating connection:', error);
+    console.error('Error creating connection:', error);
     res.status(500).json({
       success: false,
       error: error.message
     });
   }
 });
+
+app.put('/api/products/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+    
+    delete updateData.id;
+    
+    const result = await db.executeUpdate('products', id, updateData);
+    
+    res.json({
+      success: true,
+      message: 'Product updated successfully',
+      affectedRows: result.affectedRows
+    });
+  } catch (error) {
+    console.error('Update error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 // Get products data
 app.get('/api/products', async (req, res) => {
   try {
@@ -3292,18 +3581,14 @@ app.get('/api/products', async (req, res) => {
       count: data.length
     });
   } catch (error) {
-    console.error('❌ Error fetching products:', error);
+    console.error('Error fetching products:', error);
     res.status(500).json({
       success: false,
       error: error.message
     });
   }
 });
-// Get galleries data
 
-// Products के routes के बाद ये add करें:
-
-// Get appconfigs data
 app.get('/api/appconfigs', async (req, res) => {
   try {
     const data = await db.getAppConfigsData();
@@ -3314,7 +3599,7 @@ app.get('/api/appconfigs', async (req, res) => {
       count: data.length
     });
   } catch (error) {
-    console.error('❌ Error fetching app configs:', error);
+    console.error('Error fetching app configs:', error);
     res.status(500).json({
       success: false,
       error: error.message
@@ -3384,7 +3669,7 @@ app.get('/api/galleries', async (req, res) => {
       count: data.length
     });
   } catch (error) {
-    console.error('❌ Error fetching galleries:', error);
+    console.error('Error fetching galleries:', error);
     res.status(500).json({
       success: false,
       error: error.message
@@ -3402,7 +3687,7 @@ app.get('/api/sellers', async (req, res) => {
       count: data.length
     });
   } catch (error) {
-    console.error('❌ Error fetching sellers:', error);
+    console.error('Error fetching sellers:', error);
     res.status(500).json({
       success: false,
       error: error.message
@@ -3421,7 +3706,7 @@ app.get('/api/videos', async (req, res) => {
       count: data.length
     });
   } catch (error) {
-    console.error('❌ Error fetching videos:', error);
+    console.error('Error fetching videos:', error);
     res.status(500).json({
       success: false,
       error: error.message
@@ -3440,7 +3725,7 @@ app.get('/api/users', async (req, res) => {
       count: data.length
     });
   } catch (error) {
-    console.error('❌ Error fetching users:', error);
+    console.error('Error fetching users:', error);
     res.status(500).json({
       success: false,
       error: error.message
@@ -3558,7 +3843,7 @@ app.get('/api/videosenhanced', async (req, res) => {
       count: enhancedVideos.length
     });
   } catch (error) {
-    console.error('❌ Error fetching enhanced videos:', error);
+    console.error('Error fetching enhanced videos:', error);
     res.status(500).json({
       success: false,
       error: error.message
@@ -3573,7 +3858,6 @@ function getFullMediaUrl(url) {
   if (url.startsWith('/')) return `https://zulushop.in${url}`;
   return `https://zulushop.in/${url}`;
 }
-
 // Thumbnail upload endpoint (keep existing)
 app.post('/api/videos/:id/upload-thumbnail', async (req, res) => {
   try {
@@ -3610,14 +3894,12 @@ app.post('/api/videos/:id/upload-thumbnail', async (req, res) => {
     });
   }
 });
-
 // Also add direct video update endpoint
 app.put('/api/videos/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const updateData = req.body;
     
-    // Remove id from update data if present
     delete updateData.id;
     
     const result = await db.executeUpdate('videos', id, updateData);
@@ -3647,7 +3929,6 @@ app.get('/productscards', (req, res) => {
 app.get('/products', (req, res) => {
   res.sendFile(__dirname + '/products.html');
 });
-
 app.get('/appconfigs', (req, res) => {
   res.sendFile(__dirname + '/appconfigs.html');
 });
@@ -3656,8 +3937,6 @@ app.get('/sellers', (req, res) => {
 });
 app.get('/sellercards', (req, res) => {
   res.sendFile(__dirname + '/sellercards.html');
-});app.get('/productscards', (req, res) => {
-  res.sendFile(__dirname + '/productscards.html');
 });
 app.get('/videos', (req, res) => {
   res.sendFile(__dirname + '/videos.html');
@@ -3668,22 +3947,18 @@ app.get('/videoscards', (req, res) => {
 app.get('/users', (req, res) => {
   res.sendFile(__dirname + '/users.html');
 });
-
-// Galleries route
 app.get('/galleries', (req, res) => {
 res.sendFile(__dirname + '/galleries.html');
 });
-// Add this with the other HTML page routes
 app.get('/categories', (req, res) => {
   res.sendFile(__dirname + '/categories.html');
 });
-// Update record endpoint
+
 app.put('/api/:table/:id', async (req, res) => {
   try {
     const { table, id } = req.params;
     const updateData = req.body;
     
-    // Validate table name
     const validTables = ['products', 'sellers', 'users', 'videos', 'galleries'];
     if (!validTables.includes(table)) {
       return res.status(400).json({ 
@@ -3692,12 +3967,9 @@ app.put('/api/:table/:id', async (req, res) => {
       });
     }
     
-    // Remove id from update data if present
     delete updateData.id;
-    
-    // Use the db object
-    const result = await db.executeUpdate(table, id, updateData);  // Changed
-    
+  
+    const result = await db.executeUpdate(table, id, updateData);  // Changed    
     res.json({
       success: true,
       message: 'Record updated successfully',
@@ -3711,13 +3983,10 @@ app.put('/api/:table/:id', async (req, res) => {
     });
   }
 });
-
 // Get single record endpoint
 app.get('/api/:table/:id', async (req, res) => {
   try {
-    const { table, id } = req.params;
-    
-    // Validate table name
+    const { table, id } = req.params;    
     const validTables = ['products', 'sellers', 'users', 'videos', 'galleries'];
     if (!validTables.includes(table)) {
       return res.status(400).json({ 
@@ -3725,8 +3994,7 @@ app.get('/api/:table/:id', async (req, res) => {
         error: 'Invalid table name' 
       });
     }
-    
-    // Use the db object
+  
     const record = await db.getRecordById(table, id);  // Changed
     
     if (!record) {
@@ -3749,10 +4017,6 @@ app.get('/api/:table/:id', async (req, res) => {
   }
 });
 
-// -------------------------
-// Root and other endpoints
-// -------------------------
-// Add this endpoint to server.js
 app.get('/debug/products', async (req, res) => {
   try {
     console.log('Debug: Checking products data...');
@@ -3783,37 +4047,30 @@ app.get('/debug/products', async (req, res) => {
 // Add enhanced products endpoint with category and seller names
 app.get('/api/productsenhanced', async (req, res) => {
   try {
-    // Get all necessary data
     const products = await db.getCachedData('products');
     const categories = await db.getCachedData('categories');
     const sellers = await db.getCachedData('sellers');
     
-    // Create lookup maps
     const categoryMap = {};
     categories.forEach(cat => {
       categoryMap[cat.id] = cat.name;
     });
-    
+  
     const sellerMap = {};
-    sellers.forEach(seller => {
+        sellers.forEach(seller => {
       sellerMap[seller.user_id] = seller.store_name;
     });
     
-    // Enhance products with names
     const enhancedProducts = products.map(product => {
       const enhanced = {
         ...product,
-        // Add category names
         category_name: categoryMap[product.category_id] || '',
         cat1_name: categoryMap[product.cat1] || '',
-        // Add seller name
         seller_name: sellerMap[product.seller_id] || '',
-        // Format price for display
         formatted_price: product.retail_simple_price ? 
           `₹${parseFloat(product.retail_simple_price).toFixed(2)}` : '',
         formatted_special_price: product.retail_simple_special_price ? 
           `₹${parseFloat(product.retail_simple_special_price).toFixed(2)}` : '',
-        // Calculate discount percentage
         discount_percent: product.retail_simple_price && product.retail_simple_special_price ?
           Math.round(((product.retail_simple_price - product.retail_simple_special_price) / product.retail_simple_price) * 100) : 0
       };
@@ -3829,7 +4086,7 @@ app.get('/api/productsenhanced', async (req, res) => {
       count: enhancedProducts.length
     });
   } catch (error) {
-    console.error('❌ Error fetching enhanced products:', error);
+    console.error('Error fetching enhanced products:', error);
     res.status(500).json({
       success: false,
       error: error.message
@@ -3871,17 +4128,540 @@ app.get('/refresh-csv', async (req, res) => {
   try {
     galleriesData = await loadGalleriesData();
     sellersData = await loadSellersData();
+    productsData = await loadProductsData();
     res.json({ 
       status: 'success', 
       message: 'CSV data refreshed successfully', 
       categories_loaded: galleriesData.length, 
-      sellers_loaded: sellersData.length 
+      sellers_loaded: sellersData.length,
+      products_loaded: productsData.length
     });
   } catch (error) {
     res.status(500).json({ status: 'error', message: error.message });
   }
 });
+// AI Endpoints
+app.use('/ai-cache', express.static(path.join(__dirname, 'public', 'ai-cache')));
 
+async function cacheImageFor5Min(imageSource) {
+    let buffer;
+
+    // Decode image
+    if (imageSource.startsWith('data:image')) {
+        buffer = Buffer.from(imageSource.split(',')[1], 'base64');
+    } else if (/^[A-Za-z0-9+/=]+$/.test(imageSource.slice(0, 100))) {
+        buffer = Buffer.from(imageSource, 'base64');
+    } else {
+        const response = await fetch(imageSource);
+        buffer = Buffer.from(await response.arrayBuffer());
+    }
+
+    const filename = `ai-cache/${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`;
+
+    const { url } = await put(filename, buffer, {
+        access: 'public',
+        contentType: 'image/jpeg',
+        addRandomSuffix: false
+    });
+
+    return url; // Public CDN URL
+}
+app.post('/api/ai/enhance-image', async (req, res) => {
+    try {
+        const { imageUrl, productName } = req.body;
+
+        if (!imageUrl) {
+            return res.status(400).json({ success: false, error: 'No image URL provided' });
+        }
+
+        console.log('🔄 Enhancing image:', imageUrl);
+
+        let base64Image;
+        const imgRes = await fetch(imageUrl);
+        const buffer = await imgRes.arrayBuffer();
+        base64Image = Buffer.from(buffer).toString('base64');
+
+        const prompt = `
+Ultra-realistic studio product enhancement.
+Product: ${productName || 'Unknown'}
+No crop, no reshape, no text, no humans.
+Premium lighting, white background.
+`;
+
+        try {
+            const response = await openai.responses.create({
+                model: "gpt-4.1",
+                input: [{
+                    role: "user",
+                    content: [
+                        { type: "input_text", text: prompt },
+                        { type: "input_image", image_url: `data:image/jpeg;base64,${base64Image}` }
+                    ]
+                }],
+                tools: [{ type: "image_generation", size: "1024x1536", quality: "high" }]
+            });
+
+            let enhancedImageUrl = null;
+            for (const out of response.output || []) {
+                if (out.type === "image_generation_call") enhancedImageUrl = out.result;
+                if (out.type === "message") {
+                    for (const c of out.content || []) {
+                        if (c.type === "image") enhancedImageUrl = c.image_url;
+                    }
+                }
+            }
+
+            if (!enhancedImageUrl) throw new Error("No image returned");
+
+            const cachedUrl = await cacheImageFor5Min(enhancedImageUrl);
+
+            return res.json({
+                success: true,
+                enhancedImageUrl: cachedUrl,
+                ttl: 300
+            });
+
+        } catch (err) {
+            console.error("Primary enhancement failed:", err);
+
+            const dalle = await openai.images.generate({
+                model: "dall-e-3",
+                prompt: `Studio product photo of ${productName}, white background, premium lighting.`,
+                size: "1024x1024",
+                quality: "high"
+            });
+
+            const cachedUrl = await cacheImageFor5Min(dalle.data[0].url);
+
+            return res.json({
+                success: true,
+                enhancedImageUrl: cachedUrl,
+                fallback: true,
+                ttl: 300
+            });
+        }
+
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            enhancedImageUrl: req.body.imageUrl,
+            error: error.message
+        });
+    }
+});
+app.post('/api/ai/analyze-categories', async (req, res) => {
+    try {
+        const { productName, currentCategory, currentCat1, imageUrl, description } = req.body;
+        
+        console.log('🔄 Analyzing categories for:', productName);
+        
+        // Get categories from database using db (not requestData)
+        const categories = await db.getCachedData('categories');
+        
+        if (!categories || categories.length === 0) {
+            console.warn('No categories found in database');
+            // Try to fetch fresh data
+            db.clearCache('categories');
+            const freshCategories = await db.getCachedData('categories');
+            if (!freshCategories || freshCategories.length === 0) {
+                // Create default categories structure
+                categories = [
+                    { id: 1, name: "Electronics", parent_id: 0 },
+                    { id: 2, name: "Clothing", parent_id: 0 },
+                    { id: 3, name: "Home & Kitchen", parent_id: 0 },
+                    { id: 4, name: "Beauty", parent_id: 0 },
+                    { id: 5, name: "Sports", parent_id: 0 },
+                    { id: 6, name: "Books", parent_id: 0 },
+                    { id: 7, name: "Toys", parent_id: 0 }
+                ];
+            } else {
+                categories = freshCategories;
+            }
+        }
+        
+        // Get all categories and parent categories
+        const mainCategories = categories.filter(cat => cat.parent_id === 0 || cat.parent_id === null);
+        const allCategories = categories.map(cat => ({
+            id: cat.id,
+            name: cat.name,
+            parent_id: cat.parent_id,
+            parentName: cat.parent_id ? categories.find(p => p.id === cat.parent_id)?.name || 'Unknown' : null
+        }));
+        
+        // Create category options string
+        const categoryOptions = allCategories.map(cat => {
+            if (cat.parent_id) {
+                return `${cat.id}: ${cat.name} (Sub-category of ${cat.parentName})`;
+            }
+            return `${cat.id}: ${cat.name} (Main Category)`;
+        }).join('\n');
+        
+        const prompt = `
+        Analyze this product and suggest the best category and sub-category (cat1) from the available options.
+        
+        PRODUCT DETAILS:
+        - Name: ${productName}
+        - Current Category: ${currentCategory || 'Not set'}
+        - Current Cat1: ${currentCat1 || 'Not set'}
+        - Description: ${description || 'No description'}
+        
+        AVAILABLE CATEGORIES:
+        ${categoryOptions}
+        
+        INSTRUCTIONS:
+        1. Look at the product name and description to understand what it is
+        2. If current category seems correct, suggest keeping it
+        3. If current category seems wrong, suggest the most appropriate category
+        4. For cat1 (sub-category), suggest the most specific relevant category
+        5. Only suggest categories that exist in the available list
+        6. If suggesting a change, explain why
+        7. Return in valid JSON format only
+        
+        IMPORTANT:
+        - cat1 MUST be a sub-category of the main category (check parent_id)
+        - If no perfect match exists, choose the closest general category
+        - Do NOT invent new category names
+        
+        RETURN JSON FORMAT:
+        {
+            "suggestedCategory": {"id": 123, "name": "Category Name"},
+            "suggestedCat1": {"id": 456, "name": "Cat1 Name"},
+            "analysis": "Brief explanation of why these categories were chosen"
+        }
+        `;
+        
+        const response = await openai.chat.completions.create({
+            model: "gpt-4.1",
+            messages: [
+                {
+                    role: "user",
+                    content: prompt
+                }
+            ],
+            response_format: { type: "json_object" },
+            temperature: 0.3,
+            max_tokens: 500
+        });
+        
+        let result;
+        try {
+            result = JSON.parse(response.choices[0].message.content);
+            
+            // Validate that suggested categories exist
+            const suggestedCat = allCategories.find(cat => cat.id == result.suggestedCategory?.id);
+            const suggestedCat1 = allCategories.find(cat => cat.id == result.suggestedCat1?.id);
+            
+            if (!suggestedCat) {
+                console.warn('Suggested category not found:', result.suggestedCategory);
+                // Find a similar category by name
+                const similarCat = allCategories.find(cat => 
+                    cat.name.toLowerCase().includes(productName.toLowerCase().split(' ')[0]) ||
+                    productName.toLowerCase().includes(cat.name.toLowerCase())
+                );
+                
+                if (similarCat) {
+                    result.suggestedCategory = { id: similarCat.id, name: similarCat.name };
+                    result.analysis += ` (Category adjusted to "${similarCat.name}" based on similarity)`;
+                } else {
+                    // Default to first category
+                    result.suggestedCategory = { id: mainCategories[0]?.id || 1, name: mainCategories[0]?.name || "General" };
+                    result.analysis += " (Using default category)";
+                }
+            }
+            
+            if (!suggestedCat1 && result.suggestedCat1) {
+                console.warn('Suggested cat1 not found:', result.suggestedCat1);
+                // Remove invalid cat1 suggestion
+                result.suggestedCat1 = null;
+                result.analysis += " (Cat1 suggestion removed as it was invalid)";
+            }
+            
+            // Ensure cat1 is a sub-category of the main category
+            if (result.suggestedCat1 && result.suggestedCategory) {
+                const cat1Item = allCategories.find(cat => cat.id == result.suggestedCat1.id);
+                if (cat1Item && cat1Item.parent_id !== result.suggestedCategory.id) {
+                    console.warn('Cat1 is not a sub-category of main category');
+                    // Find a valid sub-category
+                    const validSubCat = allCategories.find(cat => 
+                        cat.parent_id === result.suggestedCategory.id
+                    );
+                    if (validSubCat) {
+                        result.suggestedCat1 = { id: validSubCat.id, name: validSubCat.name };
+                        result.analysis += ` (Adjusted cat1 to valid sub-category "${validSubCat.name}")`;
+                    } else {
+                        result.suggestedCat1 = null;
+                        result.analysis += " (Removed cat1 as no valid sub-category found)";
+                    }
+                }
+            }
+            
+        } catch (parseError) {
+            console.error("Failed to parse AI response:", parseError);
+            // Create a default response based on product name
+            const defaultCat = mainCategories[0] || { id: 1, name: "General" };
+            result = {
+                suggestedCategory: { id: defaultCat.id, name: defaultCat.name },
+                suggestedCat1: null,
+                analysis: "Default category assigned due to parsing error. Based on product name analysis, this seems appropriate."
+            };
+        }
+        
+        console.log('Category analysis completed');
+        
+        res.json({
+            success: true,
+            ...result
+        });
+        
+    } catch (error) {
+        console.error('Category analysis error:', error);
+        
+        let categories = [];
+        try {
+            categories = await db.getCachedData('categories');
+        } catch (dbError) {
+            console.error('Failed to fetch categories for fallback:', dbError);
+        }
+        
+        const mainCategories = categories.filter(cat => cat.parent_id === 0 || cat.parent_id === null);
+        const defaultCat = mainCategories[0] || { id: 1, name: "General" };
+        
+        res.json({ 
+            success: true, // Still success with fallback
+            suggestedCategory: { id: defaultCat.id, name: defaultCat.name },
+            suggestedCat1: null,
+            analysis: "Error occurred during analysis. Using default category.",
+            warning: error.message
+        });
+    }
+});
+app.post('/api/ai/generate-tags', async (req, res) => {
+    try {
+        const { productName, category, cat1, description, price } = req.body;
+        
+        console.log('🔄 Generating tags for:', productName);
+        
+        const prompt = `
+        Generate exactly 10 relevant tags for this product. Follow these rules:
+        
+        PRODUCT: ${productName}
+        CATEGORY: ${category || 'Not specified'}
+        SUB-CATEGORY: ${cat1 || 'Not specified'}
+        DESCRIPTION: ${description || 'No description'}
+        PRICE RANGE: ${price ? (price < 100 ? 'Budget' : price < 500 ? 'Mid-range' : 'Premium') : 'Not specified'}
+        
+        TAG REQUIREMENTS:
+        1. SEO-friendly keywords
+        2. Relevant to product, category, and sub-category
+        3. Include use-case keywords (how it's used)
+        4. Include feature keywords (what it does/has)
+        5. Include style/type keywords
+        6. All lowercase
+        7. No special characters or symbols
+        8. Max 2 words per tag
+        9. No duplicates
+        10. Include both singular and plural forms where relevant
+        
+        FORMAT:
+        Return as a JSON array of exactly 10 strings.
+        
+        EXAMPLE OUTPUT:
+        {
+            "tags": ["smartphone", "android phone", "mobile device", "touchscreen", "64mp camera", "5g enabled", "long battery", "premium design", "gaming phone", "fast charging"]
+        }
+        `;
+        
+        const response = await openai.chat.completions.create({
+            model: "gpt-4.1",
+            messages: [
+                {
+                    role: "user",
+                    content: prompt
+                }
+            ],
+            response_format: { type: "json_object" },
+            temperature: 0.5,
+            max_tokens: 300
+        });
+        
+        let result;
+        try {
+            result = JSON.parse(response.choices[0].message.content);
+            
+            // Validate tags
+            if (!result.tags || !Array.isArray(result.tags)) {
+                result.tags = [];
+            }
+            
+            // Clean and validate tags
+            result.tags = result.tags
+                .filter(tag => typeof tag === 'string')
+                .map(tag => tag.toLowerCase().trim())
+                .filter(tag => tag.length > 0 && tag.length <= 30)
+                .filter((tag, index, self) => self.indexOf(tag) === index) // Remove duplicates
+                .slice(0, 10); // Ensure exactly 10
+            
+            // If we have fewer than 10 tags, generate some basic ones
+            if (result.tags.length < 10) {
+                const basicTags = productName.toLowerCase().split(' ')
+                    .filter(word => word.length > 2)
+                    .slice(0, 5);
+                
+                result.tags = [...new Set([...result.tags, ...basicTags])].slice(0, 10);
+            }
+            
+        } catch (parseError) {
+            console.error("Failed to parse tags response:", parseError);
+            // Generate basic tags
+            const basicTags = productName.toLowerCase().split(' ')
+                .filter(word => word.length > 2)
+                .slice(0, 10);
+            result = { tags: basicTags };
+        }
+        
+        console.log(`Generated ${result.tags.length} tags`);
+        
+        res.json({
+            success: true,
+            tags: result.tags
+        });
+        
+    } catch (error) {
+        console.error('Tag generation error:', error);
+        // Generate fallback tags from product name
+        const fallbackTags = req.body.productName 
+            ? req.body.productName.toLowerCase().split(' ')
+                .filter(word => word.length > 2)
+                .slice(0, 5)
+            : [];
+        
+        res.json({ 
+            success: true, // Still success
+            tags: fallbackTags,
+            warning: error.message
+        });
+    }
+});
+app.post('/api/ai/generate-descriptions', async (req, res) => {
+    try {
+        const { productName, category, cat1, tags, price, currentDescription } = req.body;
+        
+        console.log('🔄 Generating descriptions for:', productName);
+        
+        // Format price for description
+        const priceText = price ? `₹${parseFloat(price).toFixed(2)}` : 'affordable price';
+        
+        // Main description prompt
+        const mainPrompt = `
+        Write a compelling, SEO-optimized product description.
+        
+        PRODUCT: ${productName}
+        CATEGORY: ${category || 'General'}
+        SUB-CATEGORY: ${cat1 || 'Not specified'}
+        KEY TAGS: ${tags ? tags.slice(0, 5).join(', ') : 'Not specified'}
+        
+        EXISTING DESCRIPTION (for reference only):
+        ${currentDescription || 'No existing description'}
+        
+        REQUIREMENTS:
+        - Length: 80-120 words
+        - Include: Product benefits, key features, use cases
+        - Tone: Professional yet engaging
+        - SEO: Include main keywords naturally
+        - Structure: Introduction → Features → Benefits → Call to Action
+        - No markdown formatting
+        - End with a compelling call-to-action
+        
+        Focus on why this product is valuable and how it solves problems.
+        `;
+        
+        // Extra description prompt (Indian millennial style)
+        const extraPrompt = `
+        Write an EXTRA quirky Indian millennial-style product description with only 3-4 short reasons.
+        
+        Strict Rules:
+        - Do NOT mention the product name
+        - Do NOT start with any title or heading
+        - Output only 3-4 punchy one-liners
+        - Tone: modern Indian, fun, confident, slightly playful
+        - Inspired by art, colours, and aesthetics
+        - Suitable for men, women, and kids
+        - Mention affordability but NEVER exact numbers
+        - Use comparisons like coffee, movie ticket, dinner, under 1k
+        - Do NOT use: '  "  **  or any special symbols
+        - Keep language simple, clean and commercial
+        
+        Context (for inspiration only):
+        Product Type: ${category || 'General'}
+        Style: ${cat1 || 'Contemporary'}
+        Key Features: ${tags ? tags.slice(0, 3).join(', ') : 'Quality'}
+        
+        Return ONLY the 3-4 one-liners, nothing else.
+        `;
+        
+        // Generate main description
+        const mainResponse = await openai.chat.completions.create({
+            model: "gpt-4.1",
+            messages: [
+                {
+                    role: "user",
+                    content: mainPrompt
+                }
+            ],
+            temperature: 0.7,
+            max_tokens: 300
+        });
+        
+        const mainDescription = mainResponse.choices[0].message.content.trim();
+        
+        // Generate extra description
+        const extraResponse = await openai.chat.completions.create({
+            model: "gpt-4.1",
+            messages: [
+                {
+                    role: "user",
+                    content: extraPrompt
+                }
+            ],
+            temperature: 0.8,
+            max_tokens: 150
+        });
+        
+        let extraDescription = extraResponse.choices[0].message.content.trim();
+        
+        // Clean up extra description
+        extraDescription = extraDescription
+            .replace(/^["']|["']$/g, '') // Remove quotes
+            .replace(/\*\*/g, '') // Remove bold markers
+            .split('\n')
+            .filter(line => line.trim())
+            .slice(0, 4)
+            .join('\n');
+        
+        console.log('Descriptions generated successfully');
+        
+        res.json({
+            success: true,
+            description: mainDescription,
+            extraDescription: extraDescription
+        });
+        
+    } catch (error) {
+        console.error('Description generation error:', error);
+        
+        // Create fallback descriptions
+        const fallbackMain = `Introducing ${req.body.productName || 'this product'}, a premium quality item that combines style and functionality. Perfect for everyday use, it offers great value and reliable performance. ${req.body.category ? `Ideal for ${req.body.category} enthusiasts.` : ''} Get yours today and experience the difference!`;
+        
+        const fallbackExtra = `Looks amazing in any setup\nGreat value for the price\nPerfect for gifting\nTrusted quality`;
+        
+        res.json({ 
+            success: true,
+            description: fallbackMain,
+            extraDescription: fallbackExtra,
+            warning: error.message
+        });
+    }
+});
 // app.post('/chat/history-sheets') - Pagination logic को बदलें
 app.post('/chat/history-sheets', async (req, res) => {
     try {
@@ -3903,12 +4683,12 @@ app.post('/chat/history-sheets', async (req, res) => {
             });
         }
         
-        console.log(`📜 Fetching sheets history for ${phoneNumber}, page ${page}, pageSize ${pageSize}`);
+        console.log(`Fetching sheets history for ${phoneNumber}, page ${page}, pageSize ${pageSize}`);
         
         // Get the Google Sheets client
         const sheets = await getSheets();
         if (!sheets) {
-            console.log('⚠️ Google Sheets not configured, returning empty history');
+            console.log('Google Sheets not configured, returning empty history');
             return res.json({
                 success: true,
                 history: '',
@@ -3921,7 +4701,6 @@ app.post('/chat/history-sheets', async (req, res) => {
         }
         
         try {
-            // Read column headers to find the correct column for this phone number
             const headersResp = await sheets.spreadsheets.values.get({ 
                 spreadsheetId: GOOGLE_SHEET_ID, 
                 range: 'History!1:1' 
@@ -3929,7 +4708,6 @@ app.post('/chat/history-sheets', async (req, res) => {
             
             const headers = (headersResp.data.values && headersResp.data.values[0]) || [];
             
-            // Find the column index for this phone number
             let colIndex = -1;
             for (let i = 0; i < headers.length; i++) {
                 const header = String(headers[i]).trim();
@@ -3952,7 +4730,6 @@ app.post('/chat/history-sheets', async (req, res) => {
                 });
             }
             
-            // Get all values from this column (excluding header)
             const colLetter = String.fromCharCode(65 + colIndex);
             const range = `History!${colLetter}2:${colLetter}`;
             
@@ -3966,10 +4743,8 @@ app.post('/chat/history-sheets', async (req, res) => {
             
             console.log(`Found ${columnValues.length} messages in column`);
             
-            // Parse and filter messages
             const allMessages = [];
             
-            // Google Sheets: index 0 = NEWEST message (row 2), last index = OLDEST message
             columnValues.forEach((cellValue, index) => {
                 if (cellValue && typeof cellValue === 'string' && cellValue.trim()) {
                     const parts = cellValue.split(' | ');
@@ -3989,7 +4764,6 @@ app.post('/chat/history-sheets', async (req, res) => {
                                 messageText = content.substring(10).trim();
                             }
                             
-                            // Parse the timestamp
                             const displayTime = parseIndiaTimeForDisplay(timestamp);
                             
                             allMessages.push({
@@ -3997,7 +4771,7 @@ app.post('/chat/history-sheets', async (req, res) => {
                                 sender: sender,
                                 timestamp: timestamp,
                                 displayTime: displayTime,
-                                sheetIndex: index // 0 = newest, last = oldest
+                                sheetIndex: index 
                             });
                         }
                     }
@@ -4006,95 +4780,54 @@ app.post('/chat/history-sheets', async (req, res) => {
             
             const totalMessages = allMessages.length;
             
-            // **FIXED: CUMULATIVE PAGINATION**
-            // Page 0: 0-10 (newest 10 messages)
-            // Page 1: 0-20 (newest 20 messages)
-            // Page 2: 0-30 (newest 30 messages)
-            
-            // Calculate how many messages to return
             const limit = (page + 1) * pageSize;
             const maxMessages = Math.min(limit, totalMessages);
             
             console.log(`Cumulative pagination: total=${totalMessages}, page=${page}, limit=${limit}, maxMessages=${maxMessages}`);
             
-            // Get newest messages up to the limit
-            // Note: allMessages is already newest first (index 0 = newest)
             let pageMessages = [];
             if (maxMessages > 0) {
-                // Take first 'maxMessages' from the array (newest ones)
                 pageMessages = allMessages.slice(0, maxMessages);
             }
             
-            // Check if there are more OLDER messages
-            // hasMore = true if there are messages beyond current limit
             const hasMore = maxMessages < totalMessages;
             
             console.log(`Returning ${pageMessages.length} messages (0 to ${maxMessages-1}), hasMore=${hasMore}`);
             
-            // For chat, we need OLDEST messages at top, NEWEST at bottom
-            // So we reverse the array before sending
-            // Client will display in reverse order
-            
             return res.json({
                 success: true,
                 history: '',
-                messages: pageMessages, // NEWEST first (0 = newest)
+                messages: pageMessages,
                 hasMore: hasMore,
                 totalMessages: totalMessages,
                 currentPage: page,
                 pageSize: pageSize
             });
-            
         } catch (error) {
-            console.error('❌ Error reading from Google Sheets:', error);
+            console.error('Error reading from Google Sheets:', error);
             return res.status(500).json({
                 success: false,
                 error: 'Failed to read history from Google Sheets',
                 details: error.message
             });
         }
-        
     } catch (error) {
-        console.error('💥 Chat history endpoint error:', error.message);
+        console.error('Chat history endpoint error:', error.message);
         return res.status(500).json({
             success: false,
             error: error.message
         });
     }
 });
-
-// Helper function to parse timestamp string to Date object
-function parseDateFromTimestamp(timestampStr) {
-    try {
-        // timestampStr format: "DD-MM-YYYY HH:MM:SS"
-        const parts = timestampStr.split(' ');
-        if (parts.length < 2) return new Date();
-        
-        const datePart = parts[0]; // DD-MM-YYYY
-        const timePart = parts[1]; // HH:MM:SS
-        
-        const [day, month, year] = datePart.split('-').map(Number);
-        const [hours, minutes, seconds] = timePart.split(':').map(Number);
-        
-        // Create a date object (Note: JavaScript months are 0-indexed)
-        return new Date(year, month - 1, day, hours, minutes, seconds);
-    } catch (error) {
-        console.error('Error parsing timestamp:', timestampStr, error);
-        return new Date();
-    }
-}
-
 // Helper function to format timestamp for display
 function parseIndiaTimeForDisplay(timestampStr) {
     try {
-        // timestampStr format: "DD-MM-YYYY HH:MM:SS"
         const parts = timestampStr.split(' ');
         if (parts.length < 2) return timestampStr;
         
-        const timePart = parts[1]; // HH:MM:SS
+        const timePart = parts[1];
         const [hours, minutes, seconds] = timePart.split(':').map(Number);
         
-        // Format for display: "HH:MM AM/PM"
         let displayHours = hours % 12 || 12;
         const ampm = hours >= 12 ? 'PM' : 'AM';
         
@@ -4104,9 +4837,7 @@ function parseIndiaTimeForDisplay(timestampStr) {
         return timestampStr;
     }
 }
-// -------------------------
-// Clean up expired verifications (24 hours)
-// -------------------------
+
 setInterval(() => {
   const now = Date.now();
   const twentyFourHours = 24 * 60 * 60 * 1000;
@@ -4118,19 +4849,19 @@ setInterval(() => {
       cleanedCount++;
     }
   }
-  
   if (cleanedCount > 0) {
     console.log(`🧹 Cleaned up ${cleanedCount} expired verifications`);
   }
-}, 60 * 60 * 1000); // Run every hour
+}, 60 * 60 * 1000);
 
-// Export for Vercel
 module.exports = app;
 
-// ---- Local development server ----
 if (require.main === module) {
   const PORT = process.env.PORT || 3000;
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Zulu Chat Server running at http://localhost:${PORT}`);
+    console.log(`📊 Data loaded: Galleries=${galleriesData.length}, Sellers=${sellersData.length}, Products=${productsData.length}`);
+    console.log(`🤖 Enhanced matching functions are active`);
+    console.log(`🔗 Gallery-Seller linking enabled`);
   });
 }
