@@ -66,7 +66,8 @@ const ADMIN_PHONE_NUMBERS = [
   "8368127760",  
   "9717350080",  
   "8860924190",  
-  "7483654620" 
+  "7483654620",
+  "8875584172"
 ];
 const otpStore = new Map();
 const adminOtpStore = new Map();
@@ -3777,10 +3778,12 @@ app.use((req, res, next) => {
 app.get('/chat', (req, res) => {
   res.sendFile(__dirname + '/chat.html');
 });
+
 // Serve admin verification page
 app.get('/admin-verify.html', (req, res) => {
   res.sendFile(__dirname + '/admin-verify.html');
 });
+
 // Update the /chat/message endpoint
 app.post('/chat/message', checkAuthentication, async (req, res) => {
   try {
