@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Categories - Zulu Club</title>
+    <title>Galleries - Zulu Club</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -197,6 +197,16 @@
             gap: 15px;
             flex-wrap: wrap;
         }
+        .version-controls {
+            background: #e3f2fd;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 15px 0;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
         .toggle-switch {
             position: relative;
             display: inline-block;
@@ -250,6 +260,12 @@
             color: #f44336;
         }
         .priority-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .version-filter-controls {
             display: flex;
             align-items: center;
             gap: 10px;
@@ -751,15 +767,15 @@
     </style>
 </head>
 <body>
-    <h1>📁 Categories Data</h1>
+    <h1>🖼️ Galleries Data</h1>
     
     <div class="controls">
-        <button class="back-btn" onclick="location.href='/home'">← Back to Dashboard</button>
+        <button class="back-btn" onclick="location.href='/'">← Back to Dashboard</button>
         <button class="refresh-btn" onclick="loadData()">🔄 Refresh Data</button>
-        <button class="filter-btn" id="toggleStatusFilterBtn" onclick="toggleStatusFilter()">Active Categories Only</button>
+        <button class="filter-btn" id="toggleStatusFilterBtn" onclick="toggleStatusFilter()">Active Galleries Only</button>
         <button class="sort-btn" id="toggleSortBtn" onclick="toggleSort()">Sort by Priority</button>
         <div class="search-box">
-            <input type="text" id="searchInput" placeholder="🔍 Search categories..." onkeyup="handleSearch()">
+            <input type="text" id="searchInput" placeholder="🔍 Search galleries..." onkeyup="handleSearch()">
         </div>
     </div>
     
@@ -821,6 +837,38 @@
         </div>
     </div>
     
+    <!-- NEW VERSION FILTER SECTION -->
+    <div class="version-controls">
+        <div class="version-filter-controls">
+            <span style="font-weight: bold;">Version Filter:</span>
+            <select id="versionFilter" onchange="applyVersionFilter()" style="padding: 8px; border-radius: 5px; border: 2px solid #ddd;">
+                <option value="all">All Versions</option>
+                <option value="1">Version 1</option>
+                <option value="2">Version 2</option>
+                <option value="3">Version 3</option>
+                <option value="4">Version 4</option>
+                <option value="5">Version 5</option>
+                <option value="6">Version 6</option>
+                <option value="7">Version 7</option>
+                <option value="8">Version 8</option>
+                <option value="9">Version 9</option>
+                <option value="10">Version 10</option>
+            </select>
+        </div>
+        <div class="stats-info">
+            <span>V1: <span id="version1Count">0</span></span>
+            <span>V2: <span id="version2Count">0</span></span>
+            <span>V3: <span id="version3Count">0</span></span>
+            <span>V4: <span id="version4Count">0</span></span>
+            <span>V5: <span id="version5Count">0</span></span>
+            <span>V6: <span id="version6Count">0</span></span>
+            <span>V7: <span id="version7Count">0</span></span>
+            <span>V8: <span id="version8Count">0</span></span>
+            <span>V9: <span id="version9Count">0</span></span>
+            <span>V10: <span id="version10Count">0</span></span>
+        </div>
+    </div>
+    
     <div class="pagination-controls">
         <div class="page-size-selector">
             <span style="font-weight: bold;">Show:</span>
@@ -835,7 +883,7 @@
         
         <div class="page-info">
             Page <span id="currentPage">1</span> of <span id="totalPages">1</span>
-            (<span id="showingInfo">0</span> categories)
+            (<span id="showingInfo">0</span> galleries)
         </div>
         
         <div class="pagination-buttons">
@@ -848,7 +896,7 @@
     </div>
     
     <div id="message"></div>
-    <div id="loading">Loading categories data...</div>
+    <div id="loading">Loading galleries data...</div>
     <div id="error" style="display: none;"></div>
     
     <div id="dataContainer"></div>
@@ -1001,6 +1049,7 @@
         let priorityOrder = 'asc'; // Changed to asc for highest first (1→10)
         let showOutliers = true;
         let priorityFilter = 'all';
+        let versionFilter = 'all'; // NEW: Version filter
         let searchTerm = '';
         let searchTimeout = null;
         
@@ -1047,34 +1096,16 @@
             return 'https://zulushop.in/' + url;
         }
 
-// Helper function to check if field is an image field
-function isImageField(fieldName) {
-    if (!fieldName) return false;
-    
-    const imgFields = [
-        'image', 'banner', 'banner1', 'banner2', 
-        'IMAGE1', 'IMAGE2', 'IMAGE', 'BANNER',
-        'image1', 'image2', 'banner_one', 'banner_two',
-        'thumbnail', 'cover', 'icon', 'logo'
-    ];
-    
-    const fieldUpper = fieldName.toUpperCase();
-    
-    // Direct match
-    if (imgFields.includes(fieldUpper)) {
-        return true;
-    }
-    
-    // Check if field contains image-related keywords
-    const imageKeywords = ['IMAGE', 'BANNER', 'PIC', 'PHOTO', 'THUMB', 'COVER', 'ICON', 'LOGO'];
-    for (const keyword of imageKeywords) {
-        if (fieldUpper.includes(keyword)) {
-            return true;
+        // Helper function to check if field is an image field
+        function isImageField(fieldName) {
+            const imgFields = ['image1', 'image2', 'image3', 'image4', 
+                              'image_1', 'image_2', 'image_3', 'image_4',
+                              'imageone', 'imagetwo', 'imagethree', 'imagefour',
+                              'image_one', 'image_two', 'image_three', 'image_four',
+                              'main_image', 'thumbnail', 'cover', 'banner'];
+            
+            return imgFields.includes(fieldName.toLowerCase());
         }
-    }
-    
-    return false;
-}
 
         // Helper function to check if URL is external (not from zulushop.in)
         function isExternalLink(url) {
@@ -1143,7 +1174,7 @@ function isImageField(fieldName) {
             document.getElementById('dataContainer').innerHTML = '';
             
             try {
-                const response = await fetch('/api/categories');
+                const response = await fetch('/api/galleries');
                 const data = await response.json();
                 
                 console.log('API Response:', data);
@@ -1154,17 +1185,17 @@ function isImageField(fieldName) {
                         
                         // Process data for consistent format
                         if (allData.length > 0) {
-                            allData = allData.map((category, index) => {
+                            allData = allData.map((gallery, index) => {
                                 // Ensure id exists
-                                if (!category.id) category.id = index + 1;
+                                if (!gallery.id) gallery.id = index + 1;
                                 
                                 // Process status field - keep as string but add isActive flag
-                                if (category.status !== undefined) {
-                                    let status = category.status;
+                                if (gallery.status !== undefined) {
+                                    let status = gallery.status;
                                     if (typeof status === 'string') {
                                         const statusStr = status.toLowerCase().trim();
                                         // Add isActive flag for filtering
-                                        category.isActive = (
+                                        gallery.isActive = (
                                             statusStr === 'on' || 
                                             statusStr === 'active' || 
                                             statusStr === 'true' || 
@@ -1173,40 +1204,47 @@ function isImageField(fieldName) {
                                             statusStr === 'enabled'
                                         );
                                         // Keep original status string
-                                        category.status = status;
+                                        gallery.status = status;
                                     } else {
                                         // If it's not a string, convert to string
-                                        category.status = String(status);
-                                        category.isActive = (status === 1 || status === true);
+                                        gallery.status = String(status);
+                                        gallery.isActive = (status === 1 || status === true);
                                     }
                                 } else {
                                     // If no status, default to inactive
-                                    category.status = 'inactive';
-                                    category.isActive = false;
+                                    gallery.status = 'inactive';
+                                    gallery.isActive = false;
                                 }
                                 
                                 // Get priority value and classify (1-10 normal, others outliers)
-                                let priority = Number(category.priority) || 1;
+                                let priority = Number(gallery.priority) || 1;
                                 let isOutlier = priority < 1 || priority > 10;
                                 
                                 // Normalize priority for display (1-10)
                                 if (priority < 1) priority = 1;
                                 if (priority > 10) priority = 10;
                                 
+                                // Get version value
+                                let version = Number(gallery.version) || 1;
+                                if (version < 1) version = 1;
+                                if (version > 10) version = 10;
+                                
                                 return {
-                                    ...category,
+                                    ...gallery,
                                     priority: priority,
+                                    version: version,
                                     isOutlier: isOutlier,
-                                    original_priority: category.priority, // Keep original for display
-                                    id: category.id || index + 1
+                                    original_priority: gallery.priority, // Keep original for display
+                                    id: gallery.id || index + 1
                                 };
                             });
                         }
                         
                         applyFilter();
-                        showMessage(`Loaded ${allData.length} categories`, 'success');
+                        showMessage(`Loaded ${allData.length} galleries`, 'success');
                         updateStats();
                         updatePriorityStats();
+                        updateVersionStats(); // NEW: Update version stats
                         updateStatusButtons();
                         
                         // Show cache info
@@ -1243,34 +1281,42 @@ function isImageField(fieldName) {
             
             // Apply status filter - check isActive flag
             if (statusFilter === 'active') {
-                filteredData = filteredData.filter(category => {
-                    return category.isActive === true;
+                filteredData = filteredData.filter(gallery => {
+                    return gallery.isActive === true;
                 });
             } else if (statusFilter === 'inactive') {
-                filteredData = filteredData.filter(category => {
-                    return category.isActive === false;
+                filteredData = filteredData.filter(gallery => {
+                    return gallery.isActive === false;
                 });
             }
             
             // Apply outlier filter
             if (!showOutliers) {
-                filteredData = filteredData.filter(category => !category.isOutlier);
+                filteredData = filteredData.filter(gallery => !gallery.isOutlier);
             }
             
             // Apply priority filter
             if (priorityFilter !== 'all') {
                 const selectedPriority = parseInt(priorityFilter);
-                filteredData = filteredData.filter(category => {
-                    if (category.isOutlier) return false;
-                    return Number(category.priority) === selectedPriority;
+                filteredData = filteredData.filter(gallery => {
+                    if (gallery.isOutlier) return false;
+                    return Number(gallery.priority) === selectedPriority;
+                });
+            }
+            
+            // NEW: Apply version filter
+            if (versionFilter !== 'all') {
+                const selectedVersion = parseInt(versionFilter);
+                filteredData = filteredData.filter(gallery => {
+                    return Number(gallery.version) === selectedVersion;
                 });
             }
             
             // Apply search filter
             if (searchTerm.trim() !== '') {
                 const searchLower = searchTerm.toLowerCase();
-                filteredData = filteredData.filter(category => {
-                    return Object.values(category).some(value => {
+                filteredData = filteredData.filter(gallery => {
+                    return Object.values(gallery).some(value => {
                         if (typeof value === 'string') {
                             return value.toLowerCase().includes(searchLower);
                         } else if (typeof value === 'number') {
@@ -1393,6 +1439,13 @@ function isImageField(fieldName) {
             updateFilterMessage();
         }
         
+        // NEW: Version filter function
+        function applyVersionFilter() {
+            versionFilter = document.getElementById('versionFilter').value;
+            applyFilter();
+            updateFilterMessage();
+        }
+        
         // Pagination functions
         function updatePagination() {
             pageSize = parseInt(document.getElementById('pageSize').value) || 50;
@@ -1490,7 +1543,7 @@ function isImageField(fieldName) {
             
             if (filteredData.length === 0) {
                 container.innerHTML = 
-                    '<div style="padding: 40px; text-align: center; color: #666;">No categories found matching your criteria</div>';
+                    '<div style="padding: 40px; text-align: center; color: #666;">No galleries found matching your criteria</div>';
                 return;
             }
             
@@ -1528,10 +1581,10 @@ function isImageField(fieldName) {
         function updateFilterButton() {
             const button = document.getElementById('toggleStatusFilterBtn');
             if (statusFilter === 'active') {
-                button.textContent = 'Active Categories Only';
+                button.textContent = 'Active Galleries Only';
                 button.className = 'filter-btn';
             } else {
-                button.textContent = 'Show All Categories';
+                button.textContent = 'Show All Galleries';
                 button.className = 'filter-btn inactive';
             }
         }
@@ -1577,12 +1630,12 @@ function isImageField(fieldName) {
                 return;
             }
             
-            const activeCount = allData.filter(category => {
-                return category.isActive === true;
+            const activeCount = allData.filter(gallery => {
+                return gallery.isActive === true;
             }).length;
             
-            const inactiveCount = allData.filter(category => {
-                return category.isActive === false;
+            const inactiveCount = allData.filter(gallery => {
+                return gallery.isActive === false;
             }).length;
             
             document.getElementById('activeCount').textContent = activeCount;
@@ -1600,27 +1653,27 @@ function isImageField(fieldName) {
                 return;
             }
             
-            const highCount = allData.filter(category => {
-                const priority = Number(category.priority) || 0;
-                return !category.isOutlier && priority >= 1 && priority <= 3;
+            const highCount = allData.filter(gallery => {
+                const priority = Number(gallery.priority) || 0;
+                return !gallery.isOutlier && priority >= 1 && priority <= 3;
             }).length;
             
-            const mediumCount = allData.filter(category => {
-                const priority = Number(category.priority) || 0;
-                return !category.isOutlier && priority >= 4 && priority <= 6;
+            const mediumCount = allData.filter(gallery => {
+                const priority = Number(gallery.priority) || 0;
+                return !gallery.isOutlier && priority >= 4 && priority <= 6;
             }).length;
             
-            const lowCount = allData.filter(category => {
-                const priority = Number(category.priority) || 0;
-                return !category.isOutlier && priority >= 7 && priority <= 9;
+            const lowCount = allData.filter(gallery => {
+                const priority = Number(gallery.priority) || 0;
+                return !gallery.isOutlier && priority >= 7 && priority <= 9;
             }).length;
             
-            const lowestCount = allData.filter(category => {
-                const priority = Number(category.priority) || 0;
-                return !category.isOutlier && priority === 10;
+            const lowestCount = allData.filter(gallery => {
+                const priority = Number(gallery.priority) || 0;
+                return !gallery.isOutlier && priority === 10;
             }).length;
             
-            const outlierCount = allData.filter(category => category.isOutlier).length;
+            const outlierCount = allData.filter(gallery => gallery.isOutlier).length;
             
             document.getElementById('priorityHighCount').textContent = highCount;
             document.getElementById('priorityMediumCount').textContent = mediumCount;
@@ -1629,14 +1682,42 @@ function isImageField(fieldName) {
             document.getElementById('outlierCount').textContent = outlierCount;
         }
         
+        // NEW: Update version statistics
+        function updateVersionStats() {
+            if (!allData || !Array.isArray(allData)) {
+                for (let i = 1; i <= 10; i++) {
+                    document.getElementById(`version${i}Count`).textContent = '0';
+                }
+                return;
+            }
+            
+            // Count galleries per version (1-10)
+            const versionCounts = {};
+            for (let i = 1; i <= 10; i++) {
+                versionCounts[i] = 0;
+            }
+            
+            allData.forEach(gallery => {
+                const version = Number(gallery.version) || 1;
+                if (version >= 1 && version <= 10) {
+                    versionCounts[version]++;
+                }
+            });
+            
+            // Update display
+            for (let i = 1; i <= 10; i++) {
+                document.getElementById(`version${i}Count`).textContent = versionCounts[i];
+            }
+        }
+        
         function updateSearchResults() {
             if (searchTerm.trim() !== '' && totalFilteredItems > 0) {
-                showMessage(`Found ${totalFilteredItems} categories matching "${searchTerm}"`, 'info');
+                showMessage(`Found ${totalFilteredItems} galleries matching "${searchTerm}"`, 'info');
             }
         }
         
         function updateFilterMessage() {
-            let message = `Showing ${totalFilteredItems} categories`;
+            let message = `Showing ${totalFilteredItems} galleries`;
             
             if (statusFilter === 'active') {
                 message += ` (active only)`;
@@ -1650,6 +1731,11 @@ function isImageField(fieldName) {
             
             if (priorityFilter !== 'all') {
                 message += `, priority ${priorityFilter}`;
+            }
+            
+            // NEW: Add version filter info
+            if (versionFilter !== 'all') {
+                message += `, version ${versionFilter}`;
             }
             
             showMessage(message, 'info');
@@ -1670,7 +1756,7 @@ function isImageField(fieldName) {
             const container = document.getElementById('dataContainer');
             
             if (!data || !Array.isArray(data) || data.length === 0) {
-                container.innerHTML = '<div style="padding: 40px; text-align: center; color: #666;">No categories found matching your criteria</div>';
+                container.innerHTML = '<div style="padding: 40px; text-align: center; color: #666;">No galleries found matching your criteria</div>';
                 return;
             }
             
@@ -1693,7 +1779,7 @@ function isImageField(fieldName) {
                 const displayHeader = header.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
                 const isSortable = header === 'priority' || header === 'id' || header === 'status' || 
                                   header === 'name' || header === 'title' || header === 'description' ||
-                                  header === 'category' || header === 'sub_sub_category' || header === 'business';
+                                  header === 'version'; // NEW: Make version sortable
                 const sortClass = isSortable ? 'sortable' : '';
                 html += `<th class="${sortClass}" onclick="sortByColumn('${header}')" title="${isSortable ? 'Click to sort' : ''}">${displayHeader}</th>`;
             });
@@ -1704,6 +1790,7 @@ function isImageField(fieldName) {
                 const isActive = row.isActive;
                 const status = row.status;
                 const priority = Number(row.priority) || 0;
+                const version = Number(row.version) || 1; // NEW: Get version
                 const isOutlier = row.isOutlier;
                 const originalPriority = row.original_priority;
                 
@@ -1852,20 +1939,25 @@ function isImageField(fieldName) {
                                  style="${cellStyle}">
                             ${isTruncated ? truncatedValue + '...' : truncatedValue}
                         </td>`;
-                    } else if (header === 'relevant' || header === 'by_default') {
-                        // Boolean fields
-                        const boolValue = value === '1' || value === 1 || value === true || value === 'true';
-                        cellStyle = boolValue ? 'color: #4CAF50; font-weight: bold;' : 'color: #f44336; font-weight: bold;';
-                        displayValue = boolValue ? 'Yes' : 'No';
+                    } else if (header === 'version') {
+                        // NEW: Style version column
+                        if (version >= 1 && version <= 10) {
+                            cellStyle = 'color: #7B1FA2; font-weight: bold;';
+                            displayValue = `${value}`;
+                        }
+                        
+                        const truncatedValue = displayValue.substring(0, 50);
+                        const isTruncated = displayValue.length > 50;
+                        const titleText = displayValue.length > 50 ? displayValue : '';
                         
                         html += `<td class="editable" 
-                                 title="${displayValue}\n\nClick to edit ${header}" 
+                                 title="${titleText}\n\nClick to edit ${header}" 
                                  data-id="${row.id}" 
                                  data-field="${header}" 
                                  data-value="${encodeURIComponent(value)}"
                                  onclick="openFieldEditModal(this)"
                                  style="${cellStyle}">
-                            ${displayValue}
+                            ${isTruncated ? truncatedValue + '...' : truncatedValue}
                         </td>`;
                     } else {
                         // Regular text field
@@ -1920,6 +2012,16 @@ function isImageField(fieldName) {
                 document.getElementById('priorityOrder').value = priorityOrder;
                 sortByPriority = true;
                 applyFilter();
+            } else if (column === 'version') {
+                // NEW: Sort by version
+                const sortedData = [...filteredData].sort((a, b) => {
+                    const versionA = Number(a.version) || 1;
+                    const versionB = Number(b.version) || 1;
+                    return versionA - versionB; // Ascending by version
+                });
+                filteredData = sortedData;
+                displayCurrentPage();
+                showMessage('Sorted by Version (ascending)', 'info');
             } else if (column === 'id') {
                 // Sort by id
                 const sortedData = [...filteredData].sort((a, b) => (b.id || 0) - (a.id || 0));
@@ -1975,7 +2077,7 @@ function isImageField(fieldName) {
             const displayField = field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
             document.getElementById('fieldName').textContent = `Editing ${displayField}`;
             document.getElementById('fieldLabel').textContent = displayField;
-            document.getElementById('fieldInfo').textContent = `Category ID: ${id}`;
+            document.getElementById('fieldInfo').textContent = `Gallery ID: ${id}`;
             
             // Create appropriate input based on field type
             const fieldInput = document.getElementById('fieldInput');
@@ -1984,21 +2086,24 @@ function isImageField(fieldName) {
             let inputHtml = '';
             
             // Determine input type based on field name and value
-            if (field.toLowerCase().includes('description')) {
-                // Textarea for descriptions
+            if (field.toLowerCase().includes('description') || 
+                field.toLowerCase().includes('bio') ||
+                field.toLowerCase().includes('content') ||
+                (String(value).length > 100 && !field.toLowerCase().includes('image'))) {
+                // Textarea for long text
                 inputHtml = `
                     <textarea id="editValue" name="${field}" class="form-control" rows="4" 
                               placeholder="Enter ${displayField.toLowerCase()}...">${value}</textarea>
                 `;
-            } else if (field.toLowerCase() === 'status') {
-                // Select dropdown for status
+            } else if (field.toLowerCase().includes('status')) {
+                // Select dropdown for status with common string values
                 const statusOptions = [
                     'active', 'inactive', 'enabled', 'disabled', 
-                    'on', 'off', 'yes', 'no', 'true', 'false', '1', '0'
+                    'on', 'off', 'yes', 'no', 'true', 'false'
                 ];
                 let optionsHtml = '';
                 statusOptions.forEach(option => {
-                    const selected = value.toString().toLowerCase() === option.toString().toLowerCase() ? 'selected' : '';
+                    const selected = value.toLowerCase() === option ? 'selected' : '';
                     const displayOption = option.charAt(0).toUpperCase() + option.slice(1);
                     optionsHtml += `<option value="${option}" ${selected}>${displayOption}</option>`;
                 });
@@ -2009,10 +2114,10 @@ function isImageField(fieldName) {
                         <option value="" ${!value ? 'selected' : ''}>-- Select Status --</option>
                     </select>
                     <div style="margin-top: 10px; font-size: 12px; color: #666;">
-                        Note: Common active values: active, enabled, on, yes, true, 1
+                        Note: Common active values: active, enabled, on, yes, true
                     </div>
                 `;
-            } else if (field.toLowerCase() === 'priority') {
+            } else if (field.toLowerCase().includes('priority')) {
                 // Number input for priority (1-10)
                 const priorityValue = parseInt(value) || 1;
                 inputHtml = `
@@ -2025,31 +2130,15 @@ function isImageField(fieldName) {
                         <div>Priority 10: <span style="color: #757575;">Lowest</span></div>
                     </div>
                 `;
-            } else if (field.toLowerCase() === 'relevant' || field.toLowerCase() === 'by_default') {
-                // Boolean field
-                const isTrue = value === '1' || value === 1 || value === true || value === 'true';
+            } else if (field.toLowerCase().includes('version')) {
+                // NEW: Number input for version (1-10)
+                const versionValue = parseInt(value) || 1;
                 inputHtml = `
-                    <select id="editValue" name="${field}" class="form-control">
-                        <option value="1" ${isTrue ? 'selected' : ''}>Yes</option>
-                        <option value="0" ${!isTrue ? 'selected' : ''}>No</option>
-                    </select>
-                `;
-            } else if (field.toLowerCase() === 'parent_id') {
-                // Number input for parent_id
-                const parentIdValue = parseInt(value) || 0;
-                inputHtml = `
-                    <input type="number" id="editValue" name="${field}" value="${parentIdValue}" 
-                           class="form-control" min="0" step="1">
+                    <input type="number" id="editValue" name="${field}" value="${versionValue}" 
+                           class="form-control" min="1" max="10" step="1">
                     <div style="margin-top: 10px; font-size: 12px; color: #666;">
-                        Enter 0 for root category
+                        Version indicates the app version this gallery belongs to (1-10)
                     </div>
-                `;
-            } else if (field.toLowerCase() === 'clicks') {
-                // Number input for clicks
-                const clicksValue = parseInt(value) || 0;
-                inputHtml = `
-                    <input type="number" id="editValue" name="${field}" value="${clicksValue}" 
-                           class="form-control" min="0" step="1">
                 `;
             } else {
                 // Default text input
@@ -2102,7 +2191,7 @@ function isImageField(fieldName) {
                 const updateData = {};
                 updateData[currentEditField] = newValue;
                 
-                const response = await fetch(`/api/categories/${currentEditId}`, {
+                const response = await fetch(`/api/galleries/${currentEditId}`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json'
@@ -2119,14 +2208,14 @@ function isImageField(fieldName) {
                     updateTableCell(currentEditId, currentEditField, newValue);
                     
                     // Update the allData array
-                    const categoryIndex = allData.findIndex(category => category.id == currentEditId);
-                    if (categoryIndex !== -1) {
-                        allData[categoryIndex][currentEditField] = newValue;
+                    const galleryIndex = allData.findIndex(gallery => gallery.id == currentEditId);
+                    if (galleryIndex !== -1) {
+                        allData[galleryIndex][currentEditField] = newValue;
                         
                         // If updating status, update isActive flag
                         if (currentEditField === 'status') {
                             const statusStr = String(newValue || '').toLowerCase().trim();
-                            allData[categoryIndex].isActive = (
+                            allData[galleryIndex].isActive = (
                                 statusStr === 'on' || 
                                 statusStr === 'active' || 
                                 statusStr === 'true' || 
@@ -2137,14 +2226,19 @@ function isImageField(fieldName) {
                         } else if (currentEditField === 'priority') {
                             const priority = Number(newValue) || 1;
                             const isOutlier = priority < 1 || priority > 10;
-                            allData[categoryIndex].priority = priority;
-                            allData[categoryIndex].isOutlier = isOutlier;
+                            allData[galleryIndex].priority = priority;
+                            allData[galleryIndex].isOutlier = isOutlier;
+                        } else if (currentEditField === 'version') {
+                            // NEW: Update version
+                            const version = Number(newValue) || 1;
+                            allData[galleryIndex].version = version;
                         }
                         
                         // Reapply filters to update stats
                         applyFilter();
                         updateStats();
                         updatePriorityStats();
+                        updateVersionStats(); // NEW: Update version stats
                     }
                     
                     setTimeout(() => {
@@ -2191,10 +2285,10 @@ function isImageField(fieldName) {
                     } else {
                         displayValue = `${priority}`;
                     }
-                } else if (field === 'relevant' || field === 'by_default') {
-                    // Boolean fields
-                    const boolValue = displayValue === '1' || displayValue === 1 || displayValue === true || displayValue === 'true';
-                    displayValue = boolValue ? 'Yes' : 'No';
+                } else if (field === 'version') {
+                    // NEW: Format version display
+                    const version = Number(displayValue) || 1;
+                    displayValue = `${version}`;
                 }
                 
                 const truncatedValue = String(displayValue).substring(0, 50);
@@ -2224,7 +2318,7 @@ function isImageField(fieldName) {
             const displayField = field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
             document.getElementById('imageModalTitle').textContent = `Edit ${displayField}`;
             document.getElementById('imageFieldName').textContent = displayField;
-            document.getElementById('imageFieldInfo').textContent = `Category ID: ${id}`;
+            document.getElementById('imageFieldInfo').textContent = `Gallery ID: ${id}`;
             
             // Show/hide current image section
             const currentImageContainer = document.getElementById('currentImageContainer');
@@ -2339,9 +2433,9 @@ function isImageField(fieldName) {
                 return;
             }
             
-            // Validate file size (5MB max)
-            if (file.size > 5 * 1024 * 1024) {
-                showMessage('❌ Image size must be less than 5MB', 'error');
+            // Validate file size (10MB max - matching App Configs)
+            if (file.size > 10 * 1024 * 1024) {
+                showMessage('❌ Image size must be less than 10MB', 'error');
                 return;
             }
             
@@ -2467,7 +2561,7 @@ function isImageField(fieldName) {
                 const updateData = {};
                 updateData[currentImageField] = imageUrl;
                 
-                const response = await fetch(`/api/categories/${currentImageId}`, {
+                const response = await fetch(`/api/galleries/${currentImageId}`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json'
@@ -2481,9 +2575,9 @@ function isImageField(fieldName) {
                     showMessage('✅ Image saved successfully!', 'success');
                     
                     // Update the allData array
-                    const categoryIndex = allData.findIndex(category => category.id == currentImageId);
-                    if (categoryIndex !== -1) {
-                        allData[categoryIndex][currentImageField] = imageUrl;
+                    const galleryIndex = allData.findIndex(gallery => gallery.id == currentImageId);
+                    if (galleryIndex !== -1) {
+                        allData[galleryIndex][currentImageField] = imageUrl;
                     }
                     
                     // Reload data to refresh the table
@@ -2511,7 +2605,7 @@ function isImageField(fieldName) {
                 const updateData = {};
                 updateData[field] = '';
                 
-                const response = await fetch(`/api/categories/${id}`, {
+                const response = await fetch(`/api/galleries/${id}`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json'
@@ -2525,9 +2619,9 @@ function isImageField(fieldName) {
                     showMessage('✅ Image deleted successfully!', 'success');
                     
                     // Update the allData array
-                    const categoryIndex = allData.findIndex(category => category.id == id);
-                    if (categoryIndex !== -1) {
-                        allData[categoryIndex][field] = '';
+                    const galleryIndex = allData.findIndex(gallery => gallery.id == id);
+                    if (galleryIndex !== -1) {
+                        allData[galleryIndex][field] = '';
                     }
                     
                     // Reload data to refresh the table
@@ -2554,7 +2648,7 @@ function isImageField(fieldName) {
             const displayField = field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
             document.getElementById('externalLinkModalTitle').textContent = `Edit External Link`;
             document.getElementById('externalLinkFieldName').textContent = displayField;
-            document.getElementById('externalLinkFieldInfo').textContent = `Category ID: ${id}`;
+            document.getElementById('externalLinkFieldInfo').textContent = `Gallery ID: ${id}`;
             
             // Show current link
             document.getElementById('currentExternalLink').textContent = currentExternalLinkUrl || 'No link';
@@ -2592,7 +2686,7 @@ function isImageField(fieldName) {
                 const updateData = {};
                 updateData[currentExternalLinkField] = url;
                 
-                const response = await fetch(`/api/categories/${currentExternalLinkId}`, {
+                const response = await fetch(`/api/galleries/${currentExternalLinkId}`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json'
@@ -2606,9 +2700,9 @@ function isImageField(fieldName) {
                     showMessage('✅ External link saved successfully!', 'success');
                     
                     // Update the allData array
-                    const categoryIndex = allData.findIndex(category => category.id == currentExternalLinkId);
-                    if (categoryIndex !== -1) {
-                        allData[categoryIndex][currentExternalLinkField] = url;
+                    const galleryIndex = allData.findIndex(gallery => gallery.id == currentExternalLinkId);
+                    if (galleryIndex !== -1) {
+                        allData[galleryIndex][currentExternalLinkField] = url;
                     }
                     
                     // Reload data to refresh the table
@@ -2712,6 +2806,7 @@ function isImageField(fieldName) {
             document.getElementById('priorityOrder').value = priorityOrder;
             document.getElementById('showOutliers').checked = showOutliers;
             document.getElementById('priorityFilter').value = priorityFilter;
+            document.getElementById('versionFilter').value = versionFilter; // NEW: Set version filter
             document.getElementById('pageSize').value = pageSize;
             
             updateFilterButton();

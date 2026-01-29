@@ -6,7 +6,7 @@ node_modules/
 .env.*
 
 # Ignore configs
-
+server copy.js
 package-lock.json
 
 README.md

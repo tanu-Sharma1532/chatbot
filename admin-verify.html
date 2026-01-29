@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Verification - Zulu Club</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 400px;
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #5D4037 0%, #795548 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .form-container {
+            display: none;
+        }
+        
+        .form-container.active {
+            display: block;
+        }
+        
+        .step {
+            margin-bottom: 25px;
+            animation: slideIn 0.3s ease;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .step-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .step-title .number {
+            background: #795548;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+        
+        .input-group {
+            margin-bottom: 20px;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: #555;
+            font-weight: 500;
+        }
+        
+        .input-group input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+        
+        .input-group input:focus {
+            outline: none;
+            border-color: #795548;
+            box-shadow: 0 0 0 3px rgba(121, 85, 72, 0.1);
+        }
+        
+        .input-group input.error {
+            border-color: #e74c3c;
+        }
+        
+        .error-message {
+            color: #e74c3c;
+            font-size: 13px;
+            margin-top: 5px;
+            display: none;
+        }
+        
+        .error-message.show {
+            display: block;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #795548 0%, #5D4037 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #5D4037 0%, #4E342E 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(121, 85, 72, 0.3);
+        }
+        
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #333;
+            margin-top: 15px;
+        }
+        
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+        
+        .message {
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+            animation: slideIn 0.3s ease;
+        }
+        
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+        
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+        
+        .message.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+            display: block;
+        }
+        
+        .otp-timer {
+            text-align: center;
+            font-size: 14px;
+            color: #7f8c8d;
+            margin: 15px 0;
+        }
+        
+        .otp-timer .time {
+            font-weight: 600;
+            color: #795548;
+        }
+        
+        .authorized-numbers {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 25px;
+            border: 2px dashed #e0e0e0;
+        }
+        
+        .authorized-numbers h3 {
+            font-size: 14px;
+            color: #333;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .authorized-numbers ul {
+            list-style: none;
+            padding-left: 20px;
+        }
+        
+        .authorized-numbers li {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 5px;
+            position: relative;
+        }
+        
+        .authorized-numbers li:before {
+            content: "✓";
+            color: #27ae60;
+            position: absolute;
+            left: -20px;
+        }
+        
+        .dev-note {
+            font-size: 12px;
+            color: #7f8c8d;
+            text-align: center;
+            margin-top: 20px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 4px solid #795548;
+        }
+        
+        .dev-note strong {
+            color: #795548;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .loading.active {
+            display: block;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #795548;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        @media (max-width: 480px) {
+            .container {
+                max-width: 100%;
+            }
+            
+            .header, .content {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔐 Admin Verification</h1>
+            <p>Enter OTP to access admin dashboard</p>
+        </div>
+        
+        <div class="content">
+            <div class="message" id="message"></div>
+            
+            <!-- Phone Number Step -->
+            <div class="form-container active" id="phoneStep">
+                <div class="step">
+                    <div class="step-title">
+                        <span class="number">1</span>
+                        <span>Enter Phone Number</span>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="phoneNumber">Authorized Phone Number</label>
+                        <input type="tel" id="phoneNumber" placeholder="" maxlength="10" 
+                               pattern="[0-9]{10}" required>
+                        <div class="error-message" id="phoneError"></div>
+                    </div>
+                    
+                    <button class="btn btn-primary" id="sendOtpBtn" onclick="sendOTP()">
+                        📱 Send OTP
+                    </button>
+                </div>
+            </div>
+            
+            <!-- OTP Verification Step -->
+            <div class="form-container" id="otpStep">
+                <div class="step">
+                    <div class="step-title">
+                        <span class="number">2</span>
+                        <span>Verify OTP</span>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="otpCode">Enter 4-digit OTP</label>
+                        <input type="text" id="otpCode" placeholder="1234" maxlength="4" 
+                               pattern="[0-9]{4}" required>
+                        <div class="error-message" id="otpError"></div>
+                    </div>
+                    
+                    <div class="otp-timer" id="otpTimer">
+                        OTP expires in: <span class="time" id="timer">05:00</span>
+                    </div>
+                    
+                    <button class="btn btn-primary" id="verifyOtpBtn" onclick="verifyOTP()">
+                        ✅ Verify OTP
+                    </button>
+                    
+                    <button class="btn btn-secondary" onclick="goBackToPhone()">
+                        ← Change Number
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Loading State -->
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p id="loadingText">Processing...</p>
+            </div>
+            
+            <div class="dev-note" id="devNote" style="display: none;">
+                <strong>Development Mode:</strong> OTP will be shown in console. Use it to verify.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State variables
+        let currentPhone = '';
+        let otpTimer = null;
+        let timeLeft = 300; // 5 minutes in seconds
+        let devOtp = '';
+        
+        // DOM Elements
+        const phoneStep = document.getElementById('phoneStep');
+        const otpStep = document.getElementById('otpStep');
+        const phoneInput = document.getElementById('phoneNumber');
+        const otpInput = document.getElementById('otpCode');
+        const messageDiv = document.getElementById('message');
+        const phoneError = document.getElementById('phoneError');
+        const otpError = document.getElementById('otpError');
+        const timerSpan = document.getElementById('timer');
+        const loadingDiv = document.getElementById('loading');
+        const devNote = document.getElementById('devNote');
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if already logged in
+            checkAdminStatus();
+            
+            // Auto-format phone input
+            phoneInput.addEventListener('input', function(e) {
+                this.value = this.value.replace(/\D/g, '').slice(0, 10);
+            });
+            
+            // Auto-format OTP input
+            otpInput.addEventListener('input', function(e) {
+                this.value = this.value.replace(/\D/g, '').slice(0, 4);
+            });
+            
+            // Enter key support
+            phoneInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') sendOTP();
+            });
+            
+            otpInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') verifyOTP();
+            });
+        });
+        
+        // Check admin status
+        async function checkAdminStatus() {
+            try {
+                // Check cookie first
+                if (document.cookie.includes('adminPhone')) {
+                    // Verify with server
+                    const response = await fetch('/admin/check-status', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ phoneNumber: getCookie('adminPhone') })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success && data.verified) {
+                        // Redirect to dashboard
+                        window.location.href = '/';
+                    }
+                }
+            } catch (error) {
+                console.log('Not logged in');
+            }
+        }
+        
+        // Send OTP
+        async function sendOTP() {
+            const phoneNumber = phoneInput.value.trim();
+            
+            // Validation
+            if (!phoneNumber || phoneNumber.length !== 10) {
+                showError(phoneError, 'Please enter a valid 10-digit phone number');
+                return;
+            }
+            
+            // Check if number is authorized
+            if (!['8368127760', '7483654620'].includes(phoneNumber)) {
+                showError(phoneError, 'This phone number is not authorized for admin access');
+                return;
+            }
+            
+            currentPhone = phoneNumber;
+            
+            // Show loading
+            showLoading(true, 'Sending OTP...');
+            
+            try {
+                const response = await fetch('/admin/send-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phoneNumber })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Switch to OTP step
+                    phoneStep.classList.remove('active');
+                    otpStep.classList.add('active');
+                    
+                    // Clear messages
+                    clearMessage();
+                    showSuccess('OTP sent successfully! Check your phone.');
+                    
+                    // Focus OTP input
+                    setTimeout(() => otpInput.focus(), 300);
+                    
+                    // Start timer
+                    startOTPTimer();
+                    
+                    // Show dev note if in development mode
+                    if (data.debugOtp) {
+                        devOtp = data.debugOtp;
+                        devNote.style.display = 'block';
+                        console.log(`[DEV] Admin OTP for ${phoneNumber}: ${devOtp}`);
+                    }
+                } else {
+                    showError(phoneError, data.error || 'Failed to send OTP');
+                }
+            } catch (error) {
+                showError(phoneError, 'Network error. Please try again.');
+            } finally {
+                showLoading(false);
+            }
+        }
+        
+        // Verify OTP
+        async function verifyOTP() {
+            const otp = otpInput.value.trim();
+            
+            // Validation
+            if (!otp || otp.length !== 4) {
+                showError(otpError, 'Please enter a valid 4-digit OTP');
+                return;
+            }
+            
+            showLoading(true, 'Verifying OTP...');
+            
+            try {
+                const response = await fetch('/admin/verify-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        phoneNumber: currentPhone, 
+                        otp: otp 
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showSuccess('✅ Verification successful! Redirecting...');
+                    
+                    // Clear timer
+                    stopOTPTimer();
+                    
+                    // Redirect to dashboard after 1 second
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 1000);
+                } else {
+                    showError(otpError, data.error || 'Invalid OTP');
+                }
+            } catch (error) {
+                showError(otpError, 'Network error. Please try again.');
+            } finally {
+                showLoading(false);
+            }
+        }
+        
+        // OTP Timer
+        function startOTPTimer() {
+            timeLeft = 300; // 5 minutes
+            updateTimerDisplay();
+            
+            otpTimer = setInterval(() => {
+                timeLeft--;
+                updateTimerDisplay();
+                
+                if (timeLeft <= 0) {
+                    stopOTPTimer();
+                    showError(otpError, 'OTP has expired. Please request a new one.');
+                }
+            }, 1000);
+        }
+        
+        function stopOTPTimer() {
+            if (otpTimer) {
+                clearInterval(otpTimer);
+                otpTimer = null;
+            }
+        }
+        
+        function updateTimerDisplay() {
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            timerSpan.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+        
+        // Navigation
+        function goBackToPhone() {
+            otpStep.classList.remove('active');
+            phoneStep.classList.add('active');
+            stopOTPTimer();
+            clearMessage();
+            phoneInput.focus();
+        }
+        
+        // UI Helpers
+        function showLoading(show, text = 'Processing...') {
+            loadingDiv.classList.toggle('active', show);
+            document.getElementById('loadingText').textContent = text;
+            
+            // Disable buttons while loading
+            document.getElementById('sendOtpBtn').disabled = show;
+            document.getElementById('verifyOtpBtn').disabled = show;
+        }
+        
+        function showMessage(text, type) {
+            messageDiv.textContent = text;
+            messageDiv.className = `message ${type}`;
+        }
+        
+        function showSuccess(text) {
+            showMessage(text, 'success');
+        }
+        
+        function showError(element, text) {
+            element.textContent = text;
+            element.classList.add('show');
+            setTimeout(() => element.classList.remove('show'), 5000);
+        }
+        
+        function clearMessage() {
+            messageDiv.className = 'message';
+            phoneError.classList.remove('show');
+            otpError.classList.remove('show');
+        }
+        
+        // Cookie helper
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+        }
+        
+        // Development: Auto-fill OTP from console
+        window.autoFillOTP = function() {
+            if (devOtp) {
+                otpInput.value = devOtp;
+                showSuccess('OTP auto-filled from development mode');
+            }
+        };
+    </script>
+</body>
+</html>

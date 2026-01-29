@@ -12,10 +12,10 @@ const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { put } = require('@vercel/blob');
-// Add these requires at the top with other requires
 const productEnhanceRouter = require('./productEnhance');
-const FormData = require('form-data'); // If not already installed: npm install form-data
+const FormData = require('form-data');
 const { File } = require("undici");
+const cookieParser = require('cookie-parser');
 
 
 // Import database functions
@@ -62,13 +62,22 @@ const EMPLOYEE_NUMBERS = [
   "8860924190",  
   "7483654620" 
 ];
-
+const ADMIN_PHONE_NUMBERS = [
+  "8368127760",  
+  "9717350080",  
+  "8860924190",  
+  "7483654620" 
+];
 const otpStore = new Map();
+const adminOtpStore = new Map();
+const verifiedAdmins = {};
+const ADMIN_SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static('public')); // Serve static files
+app.use(express.static('public')); 
+app.use(cookieParser());
 
 // OpenAI configuration
 const openai = new OpenAI({
@@ -80,6 +89,341 @@ let conversations = {};
 let galleriesData = [];
 let sellersData = []; 
 let productsData = []; 
+
+/**
+ * Send OTP for admin pages (uses same API but separate flow)
+ */
+const sendAdminOtp = async (phoneNumber) => {
+  try {
+    // Clean the phone number
+    const cleanPhone = phoneNumber.replace(/\D/g, '').slice(-10);
+    
+    if (!cleanPhone || cleanPhone.length !== 10 || !/^\d{10}$/.test(cleanPhone)) {
+      throw new Error('Invalid phone number. Must be 10 digits.');
+    }
+
+    // Check if phone is in allowed list
+    if (!ADMIN_PHONE_NUMBERS.includes(cleanPhone)) {
+      throw new Error('This phone number is not authorized for admin access.');
+    }
+
+    // Create form data
+    const formData = new URLSearchParams();
+    formData.append('mobile', cleanPhone);
+    
+    console.log(`📱 [ADMIN] Sending OTP to ${cleanPhone}...`);
+    
+    // Make API request to send OTP
+    const response = await axios.post(
+      'https://zulushop.in/app/v1/api/send_otp_new',
+      formData,
+      {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        timeout: 10000
+      }
+    );
+    
+    console.log('[ADMIN] Send OTP Response:', response.data);
+
+    // Store in admin OTP store
+    if (response.data && response.data.request_id) {
+      adminOtpStore.set(cleanPhone, {
+        requestId: response.data.request_id,
+        otp: null, // Will be set during development mode
+        createdAt: Date.now(),
+        verified: false
+      });
+      
+      // Clear stored OTP after 10 minutes
+      setTimeout(() => {
+        if (adminOtpStore.has(cleanPhone)) {
+          adminOtpStore.delete(cleanPhone);
+        }
+        console.log(`Cleared admin OTP for ${cleanPhone}`);
+      }, 10 * 60 * 1000);
+    }
+    
+    return {
+      ...response.data,
+      phoneNumber: cleanPhone,
+      message: 'OTP sent successfully'
+    };
+    
+  } catch (error) {
+    console.error('[ADMIN] Error sending OTP:', error);
+    
+    // For development/testing if API fails
+    if (error.code === 'ECONNREFUSED' || error.response?.status >= 500) {
+      console.log('⚠️ API unavailable, using development mode for admin');
+      
+      const cleanPhone = phoneNumber.replace(/\D/g, '').slice(-10);
+      
+      if (!cleanPhone || cleanPhone.length !== 10) {
+        throw new Error('Invalid phone number. Must be 10 digits.');
+      }
+      
+      if (!ADMIN_PHONE_NUMBERS.includes(cleanPhone)) {
+        throw new Error('This phone number is not authorized for admin access.');
+      }
+      
+      // Generate a random 4-digit OTP for development
+      const generatedOtp = Math.floor(1000 + Math.random() * 9000).toString();
+      
+      // Store in admin OTP store
+      adminOtpStore.set(cleanPhone, {
+        otp: generatedOtp,
+        requestId: `ADMIN-DEV-${Date.now()}`,
+        createdAt: Date.now(),
+        verified: false,
+        isDevMode: true
+      });
+      
+      // Clear OTP after 10 minutes
+      setTimeout(() => {
+        if (adminOtpStore.has(cleanPhone)) {
+          adminOtpStore.delete(cleanPhone);
+        }
+        console.log(`Cleared development admin OTP for ${cleanPhone}`);
+      }, 10 * 60 * 1000);
+      
+      console.log(`📱 [ADMIN-DEV] OTP for ${cleanPhone}: ${generatedOtp}`);
+      
+      return {
+        error: false,
+        provider: 'development',
+        request_id: `ADMIN-DEV-${Date.now()}`,
+        message: 'OTP sent successfully (development mode)',
+        debugOtp: generatedOtp,
+        phoneNumber: cleanPhone
+      };
+    }
+    
+    throw error;
+  }
+};
+
+/**
+ * Verify OTP for admin pages
+ */
+const verifyAdminOtp = async (phoneNumber, otp) => {
+  try {
+    // Clean the phone number
+    const cleanPhone = phoneNumber.replace(/\D/g, '').slice(-10);
+    
+    if (!cleanPhone || cleanPhone.length !== 10) {
+      throw new Error('Invalid phone number. Must be 10 digits.');
+    }
+
+    if (!otp || otp.length !== 4 || !/^\d{4}$/.test(otp)) {
+      throw new Error('Invalid OTP code. Must be 4 digits.');
+    }
+
+    // Check if phone is in allowed list
+    if (!ADMIN_PHONE_NUMBERS.includes(cleanPhone)) {
+      throw new Error('This phone number is not authorized for admin access.');
+    }
+
+    // Check if we have a stored request
+    const stored = adminOtpStore.get(cleanPhone);
+    
+    if (!stored) {
+      throw new Error('No OTP request found. Please request a new OTP.');
+    }
+
+    // Check if OTP is expired
+    const isExpired = Date.now() - stored.createdAt > 5 * 60 * 1000; // 5 minutes
+    
+    if (isExpired) {
+      adminOtpStore.delete(cleanPhone);
+      throw new Error('OTP has expired. Please request a new one.');
+    }
+
+    // If in development mode, check against stored OTP
+    if (stored.isDevMode) {
+      if (stored.otp === otp) {
+        // Mark admin as verified
+        verifiedAdmins[cleanPhone] = {
+          verified: true,
+          verifiedAt: Date.now(),
+          expiresAt: Date.now() + ADMIN_SESSION_TTL_MS
+        };
+
+        // Clear OTP from store
+        adminOtpStore.delete(cleanPhone);
+
+        console.log(`[ADMIN] ${cleanPhone} verified successfully (dev mode).`);
+        
+        return {
+          success: true,
+          message: 'OTP verified successfully',
+          phoneNumber: cleanPhone,
+          isAdmin: true
+        };
+      } else {
+        throw new Error('Invalid OTP code');
+      }
+    }
+
+    // Normal API verification
+    const formData = new URLSearchParams();
+    formData.append('mobile', cleanPhone);
+    formData.append('otp', otp);
+    
+    console.log(`[ADMIN] Verifying OTP for ${cleanPhone}...`);
+    
+    const response = await axios.post(
+      'https://zulushop.in/app/v1/api/verify_otp_new',
+      formData,
+      {
+        headers: { 
+          'Content-Type': 'application/x-www-form-urlencoded' 
+        },
+        timeout: 10000 
+      }
+    );
+
+    const data = response.data;
+    console.log('[ADMIN] Verify OTP Response:', data);
+
+    if (data.error) {
+      throw new Error(data.message || 'OTP verification failed');
+    }
+
+    // Mark admin as verified
+    verifiedAdmins[cleanPhone] = {
+      verified: true,
+      verifiedAt: Date.now(),
+      expiresAt: Date.now() + ADMIN_SESSION_TTL_MS,
+      token: data.token
+    };
+
+    // Clear OTP from store
+    adminOtpStore.delete(cleanPhone);
+
+    console.log(`[ADMIN] ${cleanPhone} verified successfully via API.`);
+    
+    return {
+      success: true,
+      message: 'OTP verified successfully',
+      phoneNumber: cleanPhone,
+      isAdmin: true,
+      token: data.token
+    };
+    
+  } catch (error) {
+    console.error('[ADMIN] Error verifying OTP:', error);
+    
+    if (error.code === 'ECONNREFUSED' || error.response?.status >= 500) {
+      console.log('⚠️ API unavailable, checking against development OTP');
+      
+      const cleanPhone = phoneNumber.replace(/\D/g, '').slice(-10);
+      
+      const stored = adminOtpStore.get(cleanPhone);
+      
+      if (stored && stored.isDevMode && stored.otp === otp) {
+        verifiedAdmins[cleanPhone] = {
+          verified: true,
+          verifiedAt: Date.now(),
+          expiresAt: Date.now() + ADMIN_SESSION_TTL_MS
+        };
+
+        adminOtpStore.delete(cleanPhone);
+
+        console.log(`[ADMIN] ${cleanPhone} verified successfully (dev fallback).`);
+        
+        return {
+          success: true,
+          message: 'OTP verified successfully (development fallback)',
+          phoneNumber: cleanPhone,
+          isAdmin: true
+        };
+      }
+    }
+    
+    throw error;
+  }
+};
+
+/**
+ * Check if admin session is valid
+ */
+const checkAdminSession = (phoneNumber) => {
+  const cleanPhone = phoneNumber.replace(/\D/g, '').slice(-10);
+  const session = verifiedAdmins[cleanPhone];
+  
+  if (!session || !session.verified) {
+    return false;
+  }
+  
+  // Check if session is expired
+  if (session.expiresAt && Date.now() > session.expiresAt) {
+    delete verifiedAdmins[cleanPhone];
+    return false;
+  }
+  
+  return true;
+};
+
+/**
+ * Middleware to protect admin pages
+ */
+const checkAdminAuth = (req, res, next) => {
+  // Get phone number from cookie
+  const adminPhone = req.cookies?.adminPhone;
+  
+  if (!adminPhone) {
+    // Redirect to OTP verification page
+    return res.redirect('/admin-verify.html');
+  }
+  
+  // Check if session is valid
+  if (!checkAdminSession(adminPhone)) {
+    // Clear invalid cookie
+    res.clearCookie('adminPhone');
+    return res.redirect('/admin-verify.html');
+  }
+  
+  // Admin is verified, proceed
+  next();
+};
+
+/**
+ * Admin logout
+ */
+const adminLogout = (req, res) => {
+  const adminPhone = req.cookies?.adminPhone;
+  
+  if (adminPhone) {
+    const cleanPhone = adminPhone.replace(/\D/g, '').slice(-10);
+    delete verifiedAdmins[cleanPhone];
+  }
+  
+  res.clearCookie('adminPhone');
+  return res.json({
+    success: true,
+    message: 'Logged out successfully'
+  });
+};
+
+// Clean expired admin sessions every hour
+setInterval(() => {
+  const now = Date.now();
+  let cleanedCount = 0;
+  
+  for (const phoneNumber in verifiedAdmins) {
+    const session = verifiedAdmins[phoneNumber];
+    if (session.expiresAt && now > session.expiresAt) {
+      delete verifiedAdmins[phoneNumber];
+      cleanedCount++;
+    }
+  }
+  
+  if (cleanedCount > 0) {
+    console.log(`🧹 [ADMIN] Cleaned ${cleanedCount} expired admin sessions`);
+  }
+}, 60 * 60 * 1000);
 
 /**
  * Sends an OTP to the provided phone number
@@ -772,7 +1116,7 @@ async function loadProductsData() {
 async function loadGalleriesData() {
   try {
     console.log('Loading galleries CSV data...');
-    const response = await axios.get('https://raw.githubusercontent.com/Rishi-Singhal-714/chatbot/main/galleries3.csv', {
+    const response = await axios.get('https://raw.githubusercontent.com/Rishi-Singhal-714/chatbot/main/galleries.csv', {
       timeout: 60000 
     });
     
@@ -863,7 +1207,7 @@ async function loadGalleriesData() {
 async function loadSellersData() {
   try {
     console.log('Loading sellers CSV data...');
-    const response = await axios.get('https://raw.githubusercontent.com/Rishi-Singhal-714/chatbot/main/sellers3.csv', {
+    const response = await axios.get('https://raw.githubusercontent.com/Rishi-Singhal-714/chatbot/main/sellers.csv', {
       timeout: 60000
     });
     
@@ -879,7 +1223,6 @@ async function loadSellersData() {
       stream
         .pipe(csv())
         .on('data', (data) => {
-          // Map ALL seller fields
           const mapped = {
             id: data.id || data.ID || '',
             seller_id: data.seller_id || data.SELLER_ID || data.sellerId || '',
@@ -887,9 +1230,7 @@ async function loadSellersData() {
             category_ids: data.category_ids || data.CATEGORY_IDS || data.categories || data.Categories || '',
             store_name: data.store_name || data.StoreName || data.store || data.Store || data['store name'] || '',
             slider_images: data.slider_images || data.sliderImages || data['slider images'] || '',
-            category_names: data.category_names || data.CATEGORY_NAMES || data['category names'] || '',
-            
-            // Raw data for reference
+            category_names: data.category_names || data.CATEGORY_NAMES || data['category names'] || '',            
             raw: data
           };
           
@@ -3114,6 +3455,164 @@ async function handleMessage(sessionId, userMessage, isAuthenticated = false) {
 }
 
 // ===================== REMAINING CODE (UNCHANGED) =====================
+// ===================== ADMIN OTP ROUTES =====================
+
+/**
+ * Send OTP for admin pages
+ */
+app.post('/admin/send-otp', async (req, res) => {
+  try {
+    const { phoneNumber } = req.body;
+    
+    if (!phoneNumber) {
+      return res.status(400).json({
+        success: false,
+        error: 'Phone number is required'
+      });
+    }
+
+    console.log(`📱 [ADMIN] Sending OTP to: ${phoneNumber}`);
+    
+    const result = await sendAdminOtp(phoneNumber);
+    
+    return res.json({
+      success: true,
+      message: 'OTP sent successfully',
+      phoneNumber: result.phoneNumber,
+      requestId: result.request_id,
+      debugOtp: result.debugOtp // Only for development
+    });
+    
+  } catch (error) {
+    console.error('[ADMIN] Error sending OTP:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to send OTP'
+    });
+  }
+});
+
+/**
+ * Verify OTP for admin pages
+ */
+app.post('/admin/verify-otp', async (req, res) => {
+  try {
+    const { phoneNumber, otp } = req.body;
+    
+    if (!phoneNumber || !otp) {
+      return res.status(400).json({
+        success: false,
+        error: 'Phone number and OTP are required'
+      });
+    }
+
+    console.log(`[ADMIN] Verifying OTP for: ${phoneNumber}`);
+    
+    const result = await verifyAdminOtp(phoneNumber, otp);
+    
+    // Set cookie for 24 hours
+    res.cookie('adminPhone', result.phoneNumber, {
+      maxAge: ADMIN_SESSION_TTL_MS,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict'
+    });
+    
+    return res.json({
+      success: true,
+      message: 'OTP verified successfully',
+      phoneNumber: result.phoneNumber,
+      isAdmin: true
+    });
+    
+  } catch (error) {
+    console.error('[ADMIN] Error verifying OTP:', error);
+    return res.status(400).json({
+      success: false,
+      error: error.message || 'Invalid OTP'
+    });
+  }
+});
+
+/**
+ * Check admin session status
+ */
+app.post('/admin/check-status', (req, res) => {
+  try {
+    const { phoneNumber } = req.body;
+    
+    if (!phoneNumber) {
+      return res.status(400).json({
+        success: false,
+        error: 'Phone number is required'
+      });
+    }
+
+    const isValid = checkAdminSession(phoneNumber);
+    
+    return res.json({
+      success: true,
+      verified: isValid,
+      message: isValid ? 'Session is valid' : 'Session expired or invalid'
+    });
+    
+  } catch (error) {
+    console.error('[ADMIN] Error checking status:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * Admin logout
+ */
+app.post('/admin/logout', (req, res) => {
+  return adminLogout(req, res);
+});
+
+// ===================== PROTECTED ADMIN ROUTES =====================
+
+// List of protected admin pages
+const protectedAdminPages = [
+  '/',
+  '/appconfigs',
+  '/categories',
+  '/galleries',
+  '/galleriescards',
+  '/products',
+  '/productscards',
+  '/sellercards',
+  '/sellers',
+  '/users',
+  '/videos',
+  '/videoscards'
+];
+
+// Apply admin auth middleware to all protected pages
+protectedAdminPages.forEach(route => {
+  app.get(route, checkAdminAuth, (req, res) => {
+    // Serve the appropriate HTML file
+    const fileMap = {
+      '/': 'index.html',
+      '/appconfigs': 'public/appconfigs.html',
+      '/categories': 'public/categories.html',
+      '/galleries': 'public/galleries.html',
+      '/galleriescards': 'public/galleriescards.html',
+      '/products': 'public/products.html',
+      '/productscards': 'public/productscards.html',
+      '/sellercards': 'public/sellercards.html',
+      '/sellers': 'public/sellers.html',
+      '/users': 'public/users.html',
+      '/videos': 'public/videos.html',
+      '/videoscards': 'public/videoscards.html'
+    };
+    
+    const fileName = fileMap[route] || 'index.html';
+    res.sendFile(__dirname + '/' + fileName);
+  });
+});
 
 /**
  * Send OTP to phone number
@@ -3278,7 +3777,10 @@ app.use((req, res, next) => {
 app.get('/chat', (req, res) => {
   res.sendFile(__dirname + '/chat.html');
 });
-
+// Serve admin verification page
+app.get('/admin-verify.html', (req, res) => {
+  res.sendFile(__dirname + '/admin-verify.html');
+});
 // Update the /chat/message endpoint
 app.post('/chat/message', checkAuthentication, async (req, res) => {
   try {
@@ -3344,9 +3846,6 @@ app.post('/chat/create-session', (req, res) => {
     });
   }
 });
-
-// Also update the /chat/history/:sessionId endpoint to handle missing sessions:
-// Get chat history for a session
 app.get('/chat/history/:sessionId', async (req, res) => {
   try {
     const { sessionId } = req.params;
@@ -3401,7 +3900,6 @@ app.get('/chat/history/:sessionId', async (req, res) => {
     });
   }
 });
-
 // -------------------------
 // New Database Endpoints
 // -------------------------
@@ -3422,7 +3920,6 @@ app.get('/api/categories', async (req, res) => {
     });
   }
 });
-
 // Update categories record
 app.put('/api/categories/:id', async (req, res) => {
   try {
@@ -3447,7 +3944,6 @@ app.put('/api/categories/:id', async (req, res) => {
     });
   }
 });
-
 // Get single categories record
 app.get('/api/categories/:id', async (req, res) => {
   try {
@@ -3474,7 +3970,6 @@ app.get('/api/categories/:id', async (req, res) => {
     });
   }
 });
-
 // Add categories to the clear-cache endpoint
 app.post('/api/clear-cache/:type', (req, res) => {
   const { type } = req.params;
@@ -3531,7 +4026,6 @@ app.post('/api/refresh-connection', (req, res) => {
     });
   }
 });
-
 // Close database connection
 app.post('/api/close-connection', (req, res) => {
   try {
@@ -3555,7 +4049,6 @@ app.post('/api/close-connection', (req, res) => {
     });
   }
 });
-
 // Create database connection
 app.post('/api/create-connection', (req, res) => {
   try {
@@ -3579,7 +4072,6 @@ app.post('/api/create-connection', (req, res) => {
     });
   }
 });
-
 app.put('/api/products/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -3602,7 +4094,6 @@ app.put('/api/products/:id', async (req, res) => {
     });
   }
 });
-
 // Get products data
 app.get('/api/products', async (req, res) => {
   try {
@@ -3621,7 +4112,6 @@ app.get('/api/products', async (req, res) => {
     });
   }
 });
-
 app.get('/api/appconfigs', async (req, res) => {
   try {
     const data = await db.getAppConfigsData();
@@ -3639,7 +4129,6 @@ app.get('/api/appconfigs', async (req, res) => {
     });
   }
 });
-
 // Update appconfigs record
 app.put('/api/appconfigs/:id', async (req, res) => {
   try {
@@ -3664,7 +4153,6 @@ app.put('/api/appconfigs/:id', async (req, res) => {
     });
   }
 });
-
 // Get single appconfigs record
 app.get('/api/appconfigs/:id', async (req, res) => {
   try {
@@ -3691,7 +4179,6 @@ app.get('/api/appconfigs/:id', async (req, res) => {
     });
   }
 });
-
 app.get('/api/galleries', async (req, res) => {
   try {
     const data = await db.getCachedData('galleries');
@@ -3727,7 +4214,6 @@ app.get('/api/sellers', async (req, res) => {
     });
   }
 });
-
 // Get videos data
 app.get('/api/videos', async (req, res) => {
   try {
@@ -3746,7 +4232,6 @@ app.get('/api/videos', async (req, res) => {
     });
   }
 });
-
 // Get users data
 app.get('/api/users', async (req, res) => {
   try {
@@ -3765,7 +4250,6 @@ app.get('/api/users', async (req, res) => {
     });
   }
 });
-
 // Clear specific cache
 app.post('/api/clear-cache/:type', (req, res) => {
   const { type } = req.params;
@@ -3780,7 +4264,6 @@ app.post('/api/clear-cache/:type', (req, res) => {
     res.status(400).json({ success: false, error: 'Invalid cache type' });
   }
 });
-
 // Get cache status
 app.get('/api/cache-status', (req, res) => {
   const status = db.getAllCacheStatus();  // Changed from dbFunctions
@@ -3789,7 +4272,6 @@ app.get('/api/cache-status', (req, res) => {
     cacheStatus: status
   });
 });
-
 // Enhanced videos endpoint with category names
 app.get('/api/videosenhanced', async (req, res) => {
   try {
@@ -3953,40 +4435,42 @@ app.put('/api/videos/:id', async (req, res) => {
 // -------------------------
 // HTML Pages
 // -------------------------
-app.get('/home', (req, res) => {
+app.get('/', (req, res) => {
   res.sendFile(__dirname + '/index.html');
 });
 app.get('/productscards', (req, res) => {
-  res.sendFile(__dirname + '/productscards.html');
+  res.sendFile(__dirname + '/public/productscards.html');
 });
 app.get('/products', (req, res) => {
-  res.sendFile(__dirname + '/products.html');
+  res.sendFile(__dirname + '/public/products.html');
 });
 app.get('/appconfigs', (req, res) => {
-  res.sendFile(__dirname + '/appconfigs.html');
+  res.sendFile(__dirname + '/public/appconfigs.html');
 });
 app.get('/sellers', (req, res) => {
-  res.sendFile(__dirname + '/sellers.html');
+  res.sendFile(__dirname + '/public/sellers.html');
 });
 app.get('/sellercards', (req, res) => {
-  res.sendFile(__dirname + '/sellercards.html');
+  res.sendFile(__dirname + '/public/sellercards.html');
 });
 app.get('/videos', (req, res) => {
-  res.sendFile(__dirname + '/videos.html');
+  res.sendFile(__dirname + '/public/videos.html');
 });
 app.get('/videoscards', (req, res) => {
-  res.sendFile(__dirname + '/videoscards.html');
+  res.sendFile(__dirname + '/public/videoscards.html');
 });
 app.get('/users', (req, res) => {
-  res.sendFile(__dirname + '/users.html');
+  res.sendFile(__dirname + '/public/users.html');
 });
 app.get('/galleries', (req, res) => {
-res.sendFile(__dirname + '/galleries.html');
+res.sendFile(__dirname + '/public/galleries.html');
+});
+app.get('/galleriescards', (req, res) => {
+  res.sendFile(__dirname + '/public/galleriescards.html');
 });
 app.get('/categories', (req, res) => {
-  res.sendFile(__dirname + '/categories.html');
+  res.sendFile(__dirname + '/public/categories.html');
 });
-
 app.put('/api/:table/:id', async (req, res) => {
   try {
     const { table, id } = req.params;
@@ -4016,7 +4500,6 @@ app.put('/api/:table/:id', async (req, res) => {
     });
   }
 });
-// Get single record endpoint
 app.get('/api/:table/:id', async (req, res) => {
   try {
     const { table, id } = req.params;    
@@ -4049,7 +4532,6 @@ app.get('/api/:table/:id', async (req, res) => {
     });
   }
 });
-
 app.get('/debug/products', async (req, res) => {
   try {
     console.log('Debug: Checking products data...');
@@ -4077,7 +4559,6 @@ app.get('/debug/products', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-// Add enhanced products endpoint with category and seller names
 app.get('/api/productsenhanced', async (req, res) => {
   try {
     const products = await db.getCachedData('products');
@@ -4126,37 +4607,6 @@ app.get('/api/productsenhanced', async (req, res) => {
     });
   }
 });
-
-app.get('/', (req, res) => {
-  res.json({ 
-    status: 'Zulu Club Chat Server with Authentication is running', 
-    service: 'Zulu Club Chat AI Assistant',
-    version: '1.0 - Unlimited Basic Access',
-    employee_numbers: EMPLOYEE_NUMBERS,
-    endpoints: {
-      chat_interface: '/chat',
-      create_session: 'POST /chat/create-session',
-      send_otp: 'POST /auth/send-otp',
-      verify_otp: 'POST /auth/verify-otp',
-      check_status: 'POST /auth/check-status',
-      logout: 'POST /auth/logout',
-      send_message: 'POST /chat/message',
-      get_history: 'GET /chat/history/:sessionId'
-    },
-    stats: {
-      product_categories_loaded: galleriesData.length,
-      sellers_loaded: sellersData.length,
-      active_conversations: Object.keys(conversations).length,
-      verified_users: Object.keys(verifiedUsers).length
-    },
-    access_model: {
-      unauthenticated: 'Company & Product intents only (unlimited)',
-      authenticated: 'All intents (seller, investors, agent, voice_ai)',
-      authentication_required: 'For seller, investors, agent, and voice_ai features'
-    },
-    timestamp: new Date().toISOString()
-  });
-});
 app.get('/refresh-csv', async (req, res) => {
   try {
     galleriesData = await loadGalleriesData();
@@ -4173,8 +4623,6 @@ app.get('/refresh-csv', async (req, res) => {
     res.status(500).json({ status: 'error', message: error.message });
   }
 });
-
-
 async function cacheImageFor5Min(imageSource) {
     if (!imageSource || typeof imageSource !== 'string') {
         throw new Error("Invalid image source received for caching");
@@ -4207,7 +4655,6 @@ async function cacheImageFor5Min(imageSource) {
 
     return url;
 }
-
 app.post('/api/ai/enhance-image', async (req, res) => {
     try {
         const { imageUrl, productName } = req.body;
@@ -4266,7 +4713,6 @@ Premium lighting, white background.
         });
     }
 });
-
 app.post('/api/ai/analyze-categories', async (req, res) => {
     try {
         const { productName, currentCategory, currentCat1, imageUrl, description } = req.body;
@@ -4681,8 +5127,6 @@ app.post('/api/ai/generate-descriptions', async (req, res) => {
         });
     }
 });
-
-// Add this to your server.js or routes file
 app.post('/api/ai/generate-lyrics', async (req, res) => {
     try {
         const { productName, description, category, cat1 } = req.body;
@@ -4755,8 +5199,201 @@ Generate ONLY the lyrics, no explanations or additional text.
         });
     }
 });
+app.post('/api/ai/generate-style', async (req, res) => {
+    try {
+        const { productName, description, category, cat1, price, specialPrice, prompt } = req.body;
+        
+        console.log('🎨 Generating style for:', productName);
+        
+        const stylePrompt = prompt || `Based on the following product information, suggest a detailed music style description for a 30-second song.
 
-// app.post('/chat/history-sheets') - Pagination logic को बदलें
+Consider:
+1. Music genre and sub-genre
+2. Mood and emotional tone
+3. Tempo and rhythm
+4. Instrumentation
+5. Vocal style (if any)
+6. Production style
+7. Cultural influences
+8. Similar artists or references
+
+Requirements:
+- Be specific and detailed
+- Suggest a style that matches the product's theme and category
+- Include practical suggestions for Suno.ai
+- Keep it concise but comprehensive
+- Focus on Indian indie/folk/pop influences if appropriate
+
+Product Information:
+Name: ${productName}
+Description: ${description || ''}
+Category: ${category || ''}
+Cat1: ${cat1 || ''}
+Price: ${price || 0}
+Special Price: ${specialPrice || ''}
+
+Generate ONLY the style description, no explanations or additional text.`;
+        
+        const response = await openai.chat.completions.create({
+            model: "gpt-4.1",
+            messages: [{ role: "user", content: stylePrompt }],
+            temperature: 0.7,
+            max_tokens: 250
+        });
+        
+        let style = response.choices[0].message.content.trim();
+        style = style.replace(/^["']|["']$/g, '');
+        
+        console.log('Style generated successfully');
+        
+        res.json({
+            success: true,
+            style: style
+        });
+        
+    } catch (error) {
+        console.error('Style generation error:', error);
+        
+        const fallbackStyle = `Genre: Indian Indie Pop with lo-fi elements
+Mood: Warm, nostalgic, slightly dreamy
+Tempo: Medium-slow (80-90 BPM)
+Instruments: Acoustic guitar, light percussion, gentle synth pads, occasional sitar touches
+Vocal Style: Soft, breathy vocals with layered harmonies
+Production: Clean with subtle reverb, warm analog feel
+Cultural Influences: Modern Indian pop blended with Western indie sensibilities
+For Suno.ai: Use "Indie Pop" or "Acoustic" style with 30-second length`;
+        
+        res.json({ 
+            success: true,
+            style: fallbackStyle,
+            warning: error.message
+        });
+    }
+});
+app.post('/api/ai/generate-gallery-lyrics', async (req, res) => {
+    try {
+        const { galleryName, description, tags, type, prompt } = req.body;
+        
+        // Use custom prompt if provided, otherwise use default
+        const lyricsPrompt = prompt || `
+Write a 30-second song inspired by the following gallery name.
+
+Style: Warm, modern, cozy, aesthetic, lightly funny
+Mood: Home comfort, everyday love, handcrafted beauty, Indian warmth
+Genre: Indie pop / soft lo-fi / acoustic chill (Indian indie vibe)
+Tempo: Medium
+
+Requirements:
+
+Convert gallery name into emotional, poetic lyrics
+
+Reflect Indian sensibilities (homely vibes, small joys, cozy chaos, "ghar wali feeling")
+
+Highlight artistic / gallery feel naturally
+
+Keep the tone relatable, warm, slightly playful
+
+Avoid sounding like an advertisement
+
+Suitable for a 30-second Suno clip (8–10 short lines)
+
+Include a catchy hook that evokes creativity and beauty
+
+Gallery Name: ${galleryName}
+Description: ${description || ''}
+Tags: ${tags || ''}
+Type: ${type || 'Product'}
+
+Generate ONLY the lyrics, no explanations or additional text.`;
+        
+        const response = await openai.chat.completions.create({
+            model: "gpt-4.1",
+            messages: [{ role: "user", content: lyricsPrompt }],
+            temperature: 0.8,
+            max_tokens: 300
+        });
+        
+        let lyrics = response.choices[0].message.content.trim();
+        lyrics = lyrics.replace(/^["']|["']$/g, '');
+        
+        res.json({ success: true, lyrics });
+        
+    } catch (error) {
+        console.error('Gallery lyrics generation error:', error);
+        
+        const fallbackLyrics = `(Verse 1)\nIn this gallery of dreams we see\nBeauty captured, wild and free\nEvery image tells a story\nOf life's endless, changing glory\n\n(Chorus)\nThis is art, this is feeling\nIn the colors that we find\nCreative hearts and moments healing\nPeace of heart and peace of mind\n\n(Bridge)\nIndian skies and gentle breezes\nArt that never fades away\nIn this space we call our own\nWe find joy in every day`;
+        
+        res.json({ 
+            success: true,
+            lyrics: fallbackLyrics,
+            warning: error.message
+        });
+    }
+});
+app.post('/api/ai/generate-gallery-style', async (req, res) => {
+    try {
+        const { galleryName, description, tags, type, prompt } = req.body;
+        
+        // Use custom prompt if provided, otherwise use default
+        const stylePrompt = prompt || `
+Based on the following gallery information, suggest a detailed music style description for a 30-second song.
+
+Consider:
+1. Music genre and sub-genre
+2. Mood and emotional tone
+3. Tempo and rhythm
+4. Instrumentation
+5. Vocal style (if any)
+6. Production style
+7. Cultural influences
+8. Similar artists or references
+
+Gallery Information:
+Name: ${galleryName}
+Description: ${description || ''}
+Type: ${type || 'Product'}
+Tags: ${tags || ''}
+
+Requirements:
+- Be specific and detailed
+- Suggest a style that matches the gallery's theme
+- Include practical suggestions for Suno.ai
+- Keep it concise but comprehensive
+- Focus on Indian indie/folk/pop influences if appropriate
+
+Generate ONLY the style description, no explanations or additional text.`;
+        
+        const response = await openai.chat.completions.create({
+            model: "gpt-4.1",
+            messages: [{ role: "user", content: stylePrompt }],
+            temperature: 0.7,
+            max_tokens: 250
+        });
+        
+        let style = response.choices[0].message.content.trim();
+        style = style.replace(/^["']|["']$/g, '');
+        
+        res.json({ success: true, style });
+        
+    } catch (error) {
+        console.error('Gallery style generation error:', error);
+        
+        const fallbackStyle = `Genre: Indian Indie Pop with lo-fi elements
+Mood: Warm, nostalgic, slightly dreamy
+Tempo: Medium-slow (80-90 BPM)
+Instruments: Acoustic guitar, light percussion, gentle synth pads, occasional sitar touches
+Vocal Style: Soft, breathy female vocals with layered harmonies
+Production: Clean with subtle reverb, warm analog feel
+Cultural Influences: Modern Indian pop blended with Western indie sensibilities
+For Suno.ai: Use "Indie Pop" or "Acoustic" style with 30-second length`;
+        
+        res.json({ 
+            success: true,
+            style: fallbackStyle,
+            warning: error.message
+        });
+    }
+});
 app.post('/chat/history-sheets', async (req, res) => {
     try {
         const { phoneNumber, page = 0, pageSize = 10 } = req.body;

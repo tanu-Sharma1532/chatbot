@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Videos - Zulu Club</title>
+    <title>Products - Zulu Club</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -10,7 +10,7 @@
         }
         h1 {
             color: #333;
-            border-bottom: 3px solid #9C27B0;
+            border-bottom: 3px solid #4CAF50;
             padding-bottom: 10px;
         }
         .controls {
@@ -43,12 +43,12 @@
             background: #f44336;
         }
         .sort-btn {
-            background: #673AB7;
+            background: #388E3C;
             color: white;
         }
         .sort-btn.active {
-            background: #5E35B1;
-            box-shadow: 0 0 0 2px rgba(103, 58, 183, 0.3);
+            background: #2E7D32;
+            box-shadow: 0 0 0 2px rgba(56, 142, 60, 0.3);
         }
         #message {
             padding: 15px;
@@ -87,7 +87,7 @@
             border-collapse: collapse;
         }
         th {
-            background: #9C27B0;
+            background: #4CAF50;
             color: white;
             padding: 12px 15px;
             text-align: left;
@@ -98,7 +98,7 @@
             cursor: pointer;
         }
         th.sortable:hover {
-            background: #7B1FA2;
+            background: #388E3C;
         }
         td {
             padding: 10px 15px;
@@ -137,12 +137,12 @@
             background: #ffebee !important;
         }
         .cache-info {
-            background: #f3e5f5;
+            background: #e8f5e9;
             padding: 10px;
             border-radius: 5px;
             margin: 10px 0;
             font-size: 14px;
-            color: #7b1fa2;
+            color: #2e7d32;
         }
         .filter-controls {
             background: #e8f5e9;
@@ -155,7 +155,7 @@
             flex-wrap: wrap;
         }
         .sort-controls {
-            background: #ede7f6;
+            background: #c8e6c9;
             padding: 10px;
             border-radius: 5px;
             margin: 15px 0;
@@ -243,7 +243,7 @@
             color: white;
         }
         .status-btn.all {
-            background: #673AB7;
+            background: #388E3C;
             color: white;
         }
         .search-box {
@@ -284,7 +284,7 @@
         }
         .pagination-buttons button {
             padding: 5px 10px;
-            background: #673AB7;
+            background: #4CAF50;
             color: white;
             border: none;
             border-radius: 4px;
@@ -328,14 +328,14 @@
     </style>
 </head>
 <body>
-    <h1>Videos Data</h1>
+    <h1>Products Data</h1>
     
     <div class="controls">
-        <button class="back-btn" onclick="location.href='/home'">← Back to Dashboard</button>
-        <button class="filter-btn" id="toggleStatusFilterBtn" onclick="toggleStatusFilter()">Active Videos Only</button>
+        <button class="back-btn" onclick="location.href='/'">← Back to Dashboard</button>
+        <button class="filter-btn" id="toggleStatusFilterBtn" onclick="toggleStatusFilter()">Active Products Only</button>
         <button class="sort-btn" id="toggleSortBtn" onclick="toggleSort()">Sort by Priority</button>
         <div class="search-box">
-            <input type="text" id="searchInput" placeholder="Search videos..." onkeyup="handleSearch()">
+            <input type="text" id="searchInput" placeholder="🔍 Search products..." onkeyup="handleSearch()">
         </div>
     </div>
     
@@ -411,7 +411,7 @@
         
         <div class="page-info">
             Page <span id="currentPage">1</span> of <span id="totalPages">1</span>
-            (<span id="showingInfo">0</span> videos)
+            (<span id="showingInfo">0</span> products)
         </div>
         
         <div class="pagination-buttons">
@@ -424,7 +424,7 @@
     </div>
     
     <div id="message"></div>
-    <div id="loading">Loading videos data...</div>
+    <div id="loading">Loading products data...</div>
     <div id="error" style="display: none;"></div>
     
     <div id="dataContainer"></div>
@@ -454,7 +454,7 @@
             document.getElementById('dataContainer').innerHTML = '';
             
             try {
-                const response = await fetch('/api/videos');
+                const response = await fetch('/api/products');
                 const data = await response.json();
                 
                 console.log('API Response:', data);
@@ -465,23 +465,19 @@
                         
                         // Process priority values (1-10 normal, others outliers)
                         if (allData.length > 0) {
-                            allData = allData.map((video, index) => {
-                                // Handle status - could be string or number
-                                let status = video.status;
+                            allData = allData.map((product, index) => {
+                                // Ensure status is number (1=on, 0=off)
+                                let status = product.status;
                                 if (typeof status === 'string') {
-                                    // Handle various string formats
-                                    const statusStr = status.toLowerCase().trim();
-                                    if (statusStr === 'on' || statusStr === 'active' || statusStr === 'true' || statusStr === '1' || statusStr === 'yes') {
+                                    if (status.toLowerCase() === 'on' || status === '1' || status === 'true') {
                                         status = 1;
-                                    } else if (statusStr === 'off' || statusStr === 'inactive' || statusStr === 'false' || statusStr === '0' || statusStr === 'no') {
+                                    } else if (status.toLowerCase() === 'off' || status === '0' || status === 'false') {
                                         status = 0;
-                                    } else {
-                                        status = 0; // Default to inactive for unknown values
                                     }
                                 }
                                 
                                 // Get priority value and classify (1-10 normal, others outliers)
-                                let priority = Number(video.priority) || 1;
+                                let priority = Number(product.priority) || 1;
                                 let isOutlier = priority < 1 || priority > 10;
                                 
                                 // Normalize priority for display (1-10)
@@ -489,18 +485,18 @@
                                 if (priority > 10) priority = 10;
                                 
                                 return {
-                                    ...video,
+                                    ...product,
                                     priority: priority,
                                     isOutlier: isOutlier,
-                                    original_priority: video.priority, // Keep original for display
+                                    original_priority: product.priority, // Keep original for display
                                     status: Number(status) || 0,
-                                    id: video.id || index + 1
+                                    id: product.id || index + 1
                                 };
                             });
                         }
                         
                         applyFilter();
-                        showMessage(`Loaded ${allData.length} videos`, 'success');
+                        showMessage(`Loaded ${allData.length} products`, 'success');
                         updateStats();
                         updatePriorityStats();
                         updateStatusButtons();
@@ -539,34 +535,34 @@
             
             // Apply status filter
             if (statusFilter === 'active') {
-                filteredData = filteredData.filter(video => {
-                    return Number(video.status) === 1;
+                filteredData = filteredData.filter(product => {
+                    return Number(product.status) === 1;
                 });
             } else if (statusFilter === 'inactive') {
-                filteredData = filteredData.filter(video => {
-                    return Number(video.status) === 0;
+                filteredData = filteredData.filter(product => {
+                    return Number(product.status) === 0;
                 });
             }
             
             // Apply outlier filter
             if (!showOutliers) {
-                filteredData = filteredData.filter(video => !video.isOutlier);
+                filteredData = filteredData.filter(product => !product.isOutlier);
             }
             
             // Apply priority filter
             if (priorityFilter !== 'all') {
                 const selectedPriority = parseInt(priorityFilter);
-                filteredData = filteredData.filter(video => {
-                    if (video.isOutlier) return false;
-                    return Number(video.priority) === selectedPriority;
+                filteredData = filteredData.filter(product => {
+                    if (product.isOutlier) return false;
+                    return Number(product.priority) === selectedPriority;
                 });
             }
             
             // Apply search filter
             if (searchTerm.trim() !== '') {
                 const searchLower = searchTerm.toLowerCase();
-                filteredData = filteredData.filter(video => {
-                    return Object.values(video).some(value => {
+                filteredData = filteredData.filter(product => {
+                    return Object.values(product).some(value => {
                         if (typeof value === 'string') {
                             return value.toLowerCase().includes(searchLower);
                         } else if (typeof value === 'number') {
@@ -742,9 +738,9 @@
             
             for (let i = startPage; i <= endPage; i++) {
                 if (i === currentPage) {
-                    pageNumbersHTML += `<button style="background: #5E35B1; padding: 5px 10px; border-radius: 4px; color: white; border: none; margin: 0 2px;">${i}</button>`;
+                    pageNumbersHTML += `<button style="background: #2E7D32; padding: 5px 10px; border-radius: 4px; color: white; border: none; margin: 0 2px;">${i}</button>`;
                 } else {
-                    pageNumbersHTML += `<button onclick="goToPage(${i})" style="padding: 5px 10px; border-radius: 4px; background: #673AB7; color: white; border: none; margin: 0 2px;">${i}</button>`;
+                    pageNumbersHTML += `<button onclick="goToPage(${i})" style="padding: 5px 10px; border-radius: 4px; background: #4CAF50; color: white; border: none; margin: 0 2px;">${i}</button>`;
                 }
             }
             
@@ -784,7 +780,7 @@
         function displayCurrentPage() {
             if (filteredData.length === 0) {
                 document.getElementById('dataContainer').innerHTML = 
-                    '<div style="padding: 40px; text-align: center; color: #666;">No videos found matching your criteria</div>';
+                    '<div style="padding: 40px; text-align: center; color: #666;">No products found matching your criteria</div>';
                 return;
             }
             
@@ -822,10 +818,10 @@
         function updateFilterButton() {
             const button = document.getElementById('toggleStatusFilterBtn');
             if (statusFilter === 'active') {
-                button.textContent = 'Active Videos Only';
+                button.textContent = 'Active Products Only';
                 button.className = 'filter-btn';
             } else {
-                button.textContent = 'Show All Videos';
+                button.textContent = 'Show All Products';
                 button.className = 'filter-btn inactive';
             }
         }
@@ -871,12 +867,12 @@
                 return;
             }
             
-            const activeCount = allData.filter(video => {
-                return Number(video.status) === 1;
+            const activeCount = allData.filter(product => {
+                return Number(product.status) === 1;
             }).length;
             
-            const inactiveCount = allData.filter(video => {
-                return Number(video.status) === 0;
+            const inactiveCount = allData.filter(product => {
+                return Number(product.status) === 0;
             }).length;
             
             document.getElementById('activeCount').textContent = activeCount;
@@ -894,27 +890,27 @@
                 return;
             }
             
-            const highCount = allData.filter(video => {
-                const priority = Number(video.priority) || 0;
-                return !video.isOutlier && priority >= 1 && priority <= 3;
+            const highCount = allData.filter(product => {
+                const priority = Number(product.priority) || 0;
+                return !product.isOutlier && priority >= 1 && priority <= 3;
             }).length;
             
-            const mediumCount = allData.filter(video => {
-                const priority = Number(video.priority) || 0;
-                return !video.isOutlier && priority >= 4 && priority <= 6;
+            const mediumCount = allData.filter(product => {
+                const priority = Number(product.priority) || 0;
+                return !product.isOutlier && priority >= 4 && priority <= 6;
             }).length;
             
-            const lowCount = allData.filter(video => {
-                const priority = Number(video.priority) || 0;
-                return !video.isOutlier && priority >= 7 && priority <= 9;
+            const lowCount = allData.filter(product => {
+                const priority = Number(product.priority) || 0;
+                return !product.isOutlier && priority >= 7 && priority <= 9;
             }).length;
             
-            const lowestCount = allData.filter(video => {
-                const priority = Number(video.priority) || 0;
-                return !video.isOutlier && priority === 10;
+            const lowestCount = allData.filter(product => {
+                const priority = Number(product.priority) || 0;
+                return !product.isOutlier && priority === 10;
             }).length;
             
-            const outlierCount = allData.filter(video => video.isOutlier).length;
+            const outlierCount = allData.filter(product => product.isOutlier).length;
             
             document.getElementById('priorityHighCount').textContent = highCount;
             document.getElementById('priorityMediumCount').textContent = mediumCount;
@@ -925,12 +921,12 @@
         
         function updateSearchResults() {
             if (searchTerm.trim() !== '' && totalFilteredItems > 0) {
-                showMessage(`Found ${totalFilteredItems} videos matching "${searchTerm}"`, 'info');
+                showMessage(`Found ${totalFilteredItems} products matching "${searchTerm}"`, 'info');
             }
         }
         
         function updateFilterMessage() {
-            let message = `Showing ${totalFilteredItems} videos`;
+            let message = `Showing ${totalFilteredItems} products`;
             
             if (statusFilter === 'active') {
                 message += ` (active only)`;
@@ -964,7 +960,7 @@
             const container = document.getElementById('dataContainer');
             
             if (!data || !Array.isArray(data) || data.length === 0) {
-                container.innerHTML = '<div style="padding: 40px; text-align: center; color: #666;">No videos found matching your criteria</div>';
+                container.innerHTML = '<div style="padding: 40px; text-align: center; color: #666;">No products found matching your criteria</div>';
                 return;
             }
             
@@ -986,8 +982,7 @@
             headers.forEach(header => {
                 const displayHeader = header.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
                 const isSortable = header === 'priority' || header === 'id' || header === 'status' || 
-                                  header === 'name' || header === 'title' || header === 'description' ||
-                                  header === 'video_title' || header === 'video_name';
+                                  header === 'name' || header === 'product_name' || header === 'title';
                 const sortClass = isSortable ? 'sortable' : '';
                 html += `<th class="${sortClass}" onclick="sortByColumn('${header}')" title="${isSortable ? 'Click to sort' : ''}">${displayHeader}</th>`;
             });
@@ -1001,7 +996,7 @@
                 const isOutlier = row.isOutlier;
                 const originalPriority = row.original_priority;
                 
-                // Determine priority class (same as products: 1-3 high, 4-6 medium, 7-9 low, 10 lowest)
+                // Determine priority class
                 let priorityClass = 'priority-outlier';
                 if (!isOutlier) {
                     if (priority >= 1 && priority <= 3) {
@@ -1042,9 +1037,11 @@
                         if (isActive) {
                             cellStyle = 'color: #4CAF50; font-weight: bold;';
                             displayValue = `${value}`;
+
                         } else {
                             cellStyle = 'color: #f44336; font-weight: bold;';
                             displayValue = `${value}`;
+
                         }
                     } else if (header === 'priority') {
                         // Show original priority if it's an outlier
@@ -1056,31 +1053,17 @@
                             displayValue = `${value}`;
                         } else if (priority >= 4 && priority <= 6) {
                             cellStyle = 'color: #2196F3; font-weight: bold;';
-                            displayValue = `${value}`;
                         } else if (priority >= 7 && priority <= 9) {
                             cellStyle = 'color: #FF9800; font-weight: bold;';
-                            displayValue = `${value}`;
                         } else if (priority === 10) {
                             cellStyle = 'color: #757575; font-weight: bold;';
                             displayValue = `${value}`;
                         }
-                    } else if (header === 'duration' || header === 'size' || header === 'views') {
-                        // Format numeric fields
+                    } else if (header === 'price' || header.includes('price')) {
+                        // Format price fields
                         if (!isNaN(value) && value !== '') {
-                            if (header === 'duration') {
-                                // Format duration (assuming seconds)
-                                const minutes = Math.floor(value / 60);
-                                const seconds = value % 60;
-                                displayValue = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-                            } else if (header === 'size') {
-                                // Format size (assuming bytes)
-                                const sizeInMB = (value / (1024 * 1024)).toFixed(2);
-                                displayValue = `${sizeInMB} MB`;
-                            } else if (header === 'views') {
-                                // Format views with commas
-                                displayValue = parseInt(value).toLocaleString();
-                            }
-                            cellStyle = 'font-weight: bold; color: #673AB7;';
+                            displayValue = '₹' + parseFloat(value).toFixed(2);
+                            cellStyle = 'font-weight: bold; color: #388E3C;';
                         }
                     }
                     
@@ -1142,12 +1125,12 @@
                 filteredData = sortedData;
                 displayCurrentPage();
                 showMessage('Sorted by Status (active first)', 'info');
-            } else if (column === 'duration' || column === 'size' || column === 'views') {
-                // Sort by numeric columns
+            } else if (column === 'price' || column.includes('price')) {
+                // Sort by price (numeric)
                 const sortedData = [...filteredData].sort((a, b) => {
-                    const aVal = parseFloat(a[column]) || 0;
-                    const bVal = parseFloat(b[column]) || 0;
-                    return bVal - aVal; // highest first
+                    const aPrice = parseFloat(a[column]) || 0;
+                    const bPrice = parseFloat(b[column]) || 0;
+                    return bPrice - aPrice; // highest price first
                 });
                 filteredData = sortedData;
                 displayCurrentPage();
@@ -1172,7 +1155,7 @@
             errorDiv.style.display = 'block';
             errorDiv.innerHTML = `
                 <div style="display: flex; align-items: center; justify-content: center; gap: 15px;">
-                    <span style="font-size: 24px;">⚠️</span>
+                    <span style="font-size: 24px;"></span>
                     <div>${message}</div>
                 </div>
             `;

@@ -1,0 +1,3535 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Galleries - Card View</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 30px;
+            background: linear-gradient(135deg, #fdfcfb 0%, #f5f5f5 100%);
+            min-height: 100vh;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #795548;
+            padding-bottom: 15px;
+            margin-bottom: 25px;
+            font-size: 28px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        h1:before {
+            content: "🖼️";
+            font-size: 32px;
+        }
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin: 25px 0;
+            flex-wrap: wrap;
+            align-items: center;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 14px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        .back-btn {
+            background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+            color: white;
+        }
+        .back-btn:hover {
+            background: linear-gradient(135deg, #5a6268 0%, #4a5056 100%);
+        }
+        .refresh-btn {
+            background: linear-gradient(135deg, #795548 0%, #5D4037 100%);
+            color: white;
+        }
+        .refresh-btn:hover {
+            background: linear-gradient(135deg, #5D4037 0%, #4E342E 100%);
+        }
+        .search-box {
+            flex-grow: 1;
+            max-width: 400px;
+            position: relative;
+        }
+        .search-box input {
+            width: 100%;
+            padding: 12px 45px 12px 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            box-sizing: border-box;
+            transition: all 0.3s;
+            background: #f8f9fa;
+        }
+        .search-box input:focus {
+            outline: none;
+            border-color: #795548;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(121, 85, 72, 0.1);
+        }
+        .search-box:after {
+            content: "🔍";
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #7f8c8d;
+        }
+        
+        /* Filters with Counts */
+        .filters-container {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            margin: 25px 0;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            border: 1px solid #e8e8e8;
+        }
+        .filters-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .filter-group {
+            position: relative;
+        }
+        .filter-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+        .filter-group select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237f8c8d' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 15px center;
+            background-size: 15px;
+        }
+        .filter-group select:focus {
+            outline: none;
+            border-color: #795548;
+            box-shadow: 0 0 0 3px rgba(121, 85, 72, 0.1);
+        }
+        .filter-count {
+            display: inline-block;
+            margin-left: 8px;
+            padding: 4px 10px;
+            background: #795548;
+            color: white;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            min-width: 30px;
+            text-align: center;
+        }
+        
+        #message {
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-weight: 600;
+            text-align: center;
+            display: none;
+            animation: slideIn 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        @keyframes slideIn {
+            from { transform: translateY(-10px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        #loading {
+            padding: 30px;
+            text-align: center;
+            background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+            border: 2px solid #ffeaa7;
+            border-radius: 10px;
+            margin: 25px 0;
+            color: #856404;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+        #loading:before {
+            content: "⏳";
+            font-size: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        #error {
+            padding: 25px;
+            text-align: center;
+            background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+            border: 2px solid #f5c6cb;
+            border-radius: 10px;
+            margin: 25px 0;
+            color: #721c24;
+            display: none;
+            animation: slideIn 0.3s ease;
+        }
+        
+        /* Galleries Grid */
+        .galleries-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 25px;
+            margin-top: 25px;
+        }
+        
+        @media (max-width: 1600px) {
+            .galleries-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+        
+        @media (max-width: 1200px) {
+            .galleries-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+        
+        @media (max-width: 800px) {
+            .galleries-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        
+        @media (max-width: 500px) {
+            .galleries-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        /* Gallery Card */
+        .gallery-card {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            border: 1px solid #f0f0f0;
+        }
+        
+        .gallery-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.15);
+        }
+        
+        .card-image {
+            width: 100%;
+            height: 200px;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e0e0e0 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .card-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: all 0.5s ease;
+            opacity: 0;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e0e0e0 100%);
+        }
+        
+        .card-image img.loaded {
+            opacity: 1;
+        }
+        
+        .gallery-card:hover .card-image img {
+            transform: scale(1.1);
+        }
+        
+        .image-actions {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            display: flex;
+            gap: 8px;
+            opacity: 0;
+            transition: all 0.3s;
+        }
+        
+        .gallery-card:hover .image-actions {
+            opacity: 1;
+        }
+        
+        .image-action-btn {
+            background: rgba(255,255,255,0.95);
+            color: #333;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 15px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .image-action-btn:hover {
+            background: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .card-content {
+            padding: 20px;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            min-height: 44px;
+        }
+        
+        .card-id {
+            font-size: 12px;
+            color: #7f8c8d;
+            background: #f8f9fa;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            margin-bottom: 12px;
+            display: inline-block;
+            border: 1px solid #e8e8e8;
+        }
+        
+        /* Status Section */
+        .card-status {
+            margin: 15px 0;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e8e8e8;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .status-badge {
+            font-size: 14px;
+            font-weight: 700;
+            padding: 6px 12px;
+            border-radius: 20px;
+        }
+        
+        .status-badge.active {
+            background: linear-gradient(135deg, #4CAF50 0%, #388e3c 100%);
+            color: white;
+        }
+        
+        .status-badge.inactive {
+            background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+            color: white;
+        }
+        
+        .priority-badge {
+            background: linear-gradient(135deg, #795548 0%, #5D4037 100%);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 700;
+        }
+        
+        /* Info Tags */
+        .card-info {
+            margin-top: 15px;
+            font-size: 12px;
+            color: #666;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        
+        .info-tag {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            color: #1565c0;
+            padding: 6px 12px;
+            border-radius: 20px;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 1px solid rgba(21, 101, 192, 0.1);
+            font-weight: 600;
+        }
+        
+        .info-tag:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .info-tag.version {
+            background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);
+            color: #7b1fa2;
+        }
+        
+        .info-tag.edit {
+            background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+            color: white;
+            cursor: pointer;
+        }
+        
+        .info-tag.music {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+            color: white;
+            cursor: pointer;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 30px;
+            color: #7f8c8d;
+            font-size: 18px;
+            grid-column: 1 / -1;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            border: 2px dashed #e0e0e0;
+        }
+        
+        .empty-state:before {
+            content: "🖼️";
+            font-size: 48px;
+            display: block;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+        
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 1000;
+            animation: fadeIn 0.3s ease;
+            backdrop-filter: blur(5px);
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .modal-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 0;
+            border-radius: 16px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            animation: modalSlideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translate(-50%, -60%) scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+            }
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 25px 30px;
+            border-bottom: 2px solid #f0f0f0;
+            background: linear-gradient(135deg, #795548 0%, #5D4037 100%);
+            color: white;
+            border-radius: 16px 16px 0 0;
+        }
+        
+        .modal-header h2 {
+            margin: 0;
+            color: white;
+            font-size: 22px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .modal-header h2:before {
+            content: "✏️";
+            font-size: 24px;
+        }
+        
+        .close-modal {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            font-size: 32px;
+            cursor: pointer;
+            color: white;
+            width: 45px;
+            height: 45px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.3s;
+        }
+        
+        .close-modal:hover {
+            background: rgba(255,255,255,0.3);
+            transform: rotate(90deg);
+        }
+        
+        .modal-body {
+            padding: 30px;
+        }
+        
+        .field-info {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            border-left: 6px solid #795548;
+            border-right: 1px solid #e0e0e0;
+            border-top: 1px solid #e0e0e0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .field-info h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .field-info p {
+            margin: 0;
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+        
+        /* Enhanced Form Layout */
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+        
+        .form-section {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 12px;
+            border: 2px solid #e9ecef;
+        }
+        
+        .form-section h4 {
+            margin: 0 0 20px 0;
+            color: #333;
+            font-size: 16px;
+            font-weight: 600;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #795548;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .form-section h4:before {
+            content: "📋";
+            font-size: 18px;
+        }
+        
+        .form-group {
+            margin-bottom: 25px;
+            position: relative;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .form-group label:after {
+            content: ":";
+            color: #795548;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 14px 18px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 15px;
+            box-sizing: border-box;
+            transition: all 0.3s;
+            background: white;
+            font-family: inherit;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: #795548;
+            box-shadow: 0 0 0 4px rgba(121, 85, 72, 0.15);
+            transform: translateY(-2px);
+        }
+        
+        .form-control:hover {
+            border-color: #bdc3c7;
+        }
+        
+        select.form-control {
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237f8c8d' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 18px center;
+            background-size: 16px;
+            padding-right: 50px;
+        }
+        
+        textarea.form-control {
+            min-height: 120px;
+            resize: vertical;
+            line-height: 1.6;
+        }
+        
+        .form-control[readonly] {
+            background: #f8f9fa;
+            color: #7f8c8d;
+            cursor: not-allowed;
+        }
+        
+        .form-control[readonly]:focus {
+            border-color: #e0e0e0;
+            box-shadow: none;
+            transform: none;
+        }
+        
+        /* Form Validation States */
+        .form-control.valid {
+            border-color: #27ae60;
+        }
+        
+        .form-control.invalid {
+            border-color: #e74c3c;
+        }
+        
+        .validation-feedback {
+            display: none;
+            margin-top: 8px;
+            font-size: 12px;
+            padding: 8px 12px;
+            border-radius: 6px;
+        }
+        
+        .validation-feedback.valid {
+            display: block;
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .validation-feedback.invalid {
+            display: block;
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .modal-actions {
+            display: flex;
+            gap: 15px;
+            justify-content: flex-end;
+            padding: 25px 30px;
+            border-top: 2px solid #f0f0f0;
+            background: #f8f9fa;
+            border-radius: 0 0 16px 16px;
+        }
+        
+        .save-btn {
+            background: linear-gradient(135deg, #795548 0%, #5D4037 100%);
+            color: white;
+            padding: 14px 28px;
+            font-size: 15px;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.3s;
+        }
+        
+        .save-btn:hover {
+            background: linear-gradient(135deg, #5D4037 0%, #4E342E 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(121, 85, 72, 0.3);
+        }
+        
+        .save-btn:active {
+            transform: translateY(0);
+        }
+        
+        .cancel-btn {
+            background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);
+            color: white;
+            padding: 14px 28px;
+            font-size: 15px;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.3s;
+        }
+        
+        .cancel-btn:hover {
+            background: linear-gradient(135deg, #7f8c8d 0%, #6c757d 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(127, 140, 141, 0.3);
+        }
+        
+        .cancel-btn:active {
+            transform: translateY(0);
+        }
+        
+        /* Status Indicator */
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .status-indicator.active {
+            background: rgba(39, 174, 96, 0.1);
+            color: #27ae60;
+            border: 1px solid rgba(39, 174, 96, 0.2);
+        }
+        
+        .status-indicator.active:before {
+            content: "●";
+            color: #27ae60;
+            font-size: 8px;
+        }
+        
+        .status-indicator.inactive {
+            background: rgba(231, 76, 60, 0.1);
+            color: #e74c3c;
+            border: 1px solid rgba(231, 76, 60, 0.2);
+        }
+        
+        .status-indicator.inactive:before {
+            content: "●";
+            color: #e74c3c;
+            font-size: 8px;
+        }
+        
+        /* Required field indicator */
+        .required:after {
+            content: " *";
+            color: #e74c3c;
+        }
+        
+        /* Field description */
+        .field-description {
+            display: block;
+            margin-top: 6px;
+            font-size: 12px;
+            color: #7f8c8d;
+            font-style: italic;
+        }
+        
+        /* Loading state for form */
+        .form-loading {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255,255,255,0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            z-index: 10;
+        }
+        
+        .form-loading:before {
+            content: "";
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #795548;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        /* Form success animation */
+        @keyframes successPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        .form-success {
+            animation: successPulse 0.6s ease;
+        }
+        
+        /* Responsive adjustments for modal */
+        @media (max-width: 768px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .modal-content {
+                width: 95%;
+                max-height: 85vh;
+            }
+            
+            .modal-body {
+                padding: 20px;
+            }
+            
+            .form-section {
+                padding: 20px;
+            }
+            
+            .modal-actions {
+                flex-direction: column-reverse;
+                gap: 10px;
+            }
+            
+            .save-btn, .cancel-btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+        
+        /* Image Modal Specific Styles */
+        .current-image-container {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 2px dashed #ddd;
+        }
+        
+        .current-image {
+            max-width: 100%;
+            max-height: 200px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+        
+        .upload-container {
+            border: 2px dashed #795548;
+            padding: 30px;
+            text-align: center;
+            border-radius: 10px;
+            background: #f8f9fa;
+            margin-bottom: 20px;
+            transition: all 0.3s;
+        }
+        
+        .upload-container.dragover {
+            border-color: #4CAF50;
+            background: #e8f5e9;
+        }
+        
+        .upload-btn {
+            background: #795548;
+            color: white;
+            padding: 12px 25px;
+            border-radius: 5px;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+        
+        .upload-btn:hover {
+            background: #5D4037;
+        }
+        
+        .file-input {
+            display: none;
+        }
+        
+        /* Music Generation Modal Styles */
+        .ai-step {
+            padding: 8px 12px;
+            background: #f0f0f0;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #7f8c8d;
+        }
+        
+        .ai-step.active {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+        }
+        
+        .ai-step.completed {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .ai-tag {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            border: none;
+        }
+        
+        /* Progress bar */
+        .progress-bar {
+            width: 100%;
+            height: 10px;
+            background: #f0f0f0;
+            border-radius: 5px;
+            overflow: hidden;
+            margin: 15px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+            width: 0%;
+            transition: width 0.3s;
+            border-radius: 5px;
+        }
+        
+        /* Lyrics display */
+        .lyrics-container {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            border-left: 4px solid #ff6b6b;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            line-height: 1.6;
+            max-height: 300px;
+            overflow-y: auto;
+            margin: 20px 0;
+        }
+        
+        .instructions {
+            background: #e8f5e9;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #4CAF50;
+            margin: 15px 0;
+            font-size: 14px;
+        }
+        
+        .instructions ol {
+            margin: 10px 0 10px 20px;
+        }
+        
+        .instructions li {
+            margin-bottom: 8px;
+        }
+        
+        .audio-preview {
+            width: 100%;
+            margin: 15px 0;
+            border-radius: 8px;
+        }
+        
+        .upload-status {
+            padding: 10px;
+            border-radius: 6px;
+            margin: 10px 0;
+            font-weight: 600;
+        }
+        
+        .upload-status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .upload-status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .upload-status.processing {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        /* Style Generation Styles */
+        .style-container {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            border-left: 4px solid #667eea;
+            margin: 20px 0;
+            line-height: 1.6;
+        }
+        
+        .prompt-editor {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        
+        .prompt-editor textarea {
+            width: 100%;
+            min-height: 120px;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.4;
+            resize: vertical;
+        }
+        
+        .prompt-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            justify-content: flex-end;
+        }
+        
+        .prompt-btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .prompt-btn.save {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+        }
+        
+        .prompt-btn.cancel {
+            background: #f5f5f5;
+            color: #666;
+        }
+        
+        .generate-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .generate-btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+        }
+        
+        .generate-btn.lyrics {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+            color: white;
+        }
+        
+        .generate-btn.style {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .generate-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        /* New prompt tab styles */
+        .prompt-tab {
+            transition: all 0.3s ease;
+        }
+        
+        .prompt-tab.active {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+        }
+        
+        .prompt-tab:not(.active) {
+            opacity: 0.8;
+        }
+        
+        .prompt-tab:hover:not(.active) {
+            opacity: 1;
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <h1>Galleries - Card View</h1>
+    
+    <div class="controls">
+        <button class="back-btn" onclick="location.href='/'">← Back to Table View</button>
+        <button class="refresh-btn" onclick="loadGalleries()">🔄 Refresh</button>
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="Search galleries by name, description...">
+        </div>
+    </div>
+    
+    <!-- Filters Section with Counts -->
+    <div class="filters-container">
+        <div class="filters-row">
+            <div class="filter-group">
+                <label>Status: <span class="filter-count" id="statusCount">0</span></label>
+                <select id="statusFilter">
+                    <option value="all">All Status</option>
+                    <option value="on">On</option>
+                    <option value="off">Off</option>
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label>Priority: <span class="filter-count" id="priorityCount">0</span></label>
+                <select id="priorityFilter">
+                    <option value="all">All Priorities</option>
+                    <option value="1">1 (Highest)</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                    <option value="7">7</option>
+                    <option value="8">8</option>
+                    <option value="9">9</option>
+                    <option value="10">10 (Lowest)</option>
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label>Version: <span class="filter-count" id="versionCount">0</span></label>
+                <select id="versionFilter">
+                    <option value="all">All Versions</option>
+                    <option value="1">Version 1</option>
+                    <option value="2">Version 2</option>
+                    <option value="3">Version 3</option>
+                    <option value="4">Version 4</option>
+                    <option value="5">Version 5</option>
+                    <option value="6">Version 6</option>
+                    <option value="7">Version 7</option>
+                    <option value="8">Version 8</option>
+                    <option value="9">Version 9</option>
+                    <option value="10">Version 10</option>
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label>Type: <span class="filter-count" id="typeCount">0</span></label>
+                <select id="typeFilter">
+                    <option value="all">All Types</option>
+                    <option value="Product">Product</option>
+                    <option value="Video">Video</option>
+                    <option value="Kit">Kit</option>
+                    <option value="Outlet">Outlet</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    
+    <div id="message"></div>
+    <div id="loading">Loading galleries...</div>
+    <div id="error"></div>
+    
+    <div id="galleriesContainer" class="galleries-grid"></div>
+
+    <!-- Image Upload Modal -->
+    <div id="imageUploadModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit Gallery Image</h2>
+                <button class="close-modal" onclick="closeImageModal()">&times;</button>
+            </div>
+            
+            <div class="modal-body">
+                <div class="field-info">
+                    <h3 id="imageFieldName">Gallery Image</h3>
+                    <p id="imageFieldInfo">Upload or replace the gallery image</p>
+                </div>
+                
+                <!-- Current Image Preview -->
+                <div id="currentImageContainer" class="current-image-container">
+                    <h4>Current Image</h4>
+                    <img id="currentImagePreview" class="current-image" src="" alt="Current Image">
+                    <div id="currentImageActions" style="margin-top: 15px; display: flex; gap: 10px; justify-content: center;">
+                        <button onclick="viewCurrentImage()" class="image-action-btn">👁️ View Full Image</button>
+                        <button onclick="deleteCurrentImage()" class="image-action-btn delete" style="background: #e74c3c; color: white;">🗑️ Delete Image</button>
+                    </div>
+                </div>
+                
+                <!-- Upload Section -->
+                <div class="upload-container" id="uploadContainer">
+                    <input type="file" id="imageFileInput" class="file-input" accept="image/*">
+                    <button type="button" class="upload-btn" onclick="document.getElementById('imageFileInput').click()">
+                        📁 Choose Image to Upload
+                    </button>
+                    <p style="margin: 15px 0; color: #666;">or drag and drop image here</p>
+                    <div style="font-size: 13px; color: #7f8c8d; margin-top: 15px; padding: 10px; background: rgba(255,255,255,0.5); border-radius: 6px;">
+                        <strong>Supported formats:</strong> JPG, PNG, GIF, WEBP<br>
+                        <strong>Maximum file size:</strong> 10MB<br>
+                        <strong>Recommended dimensions:</strong> 800×600px or larger
+                    </div>
+                </div>
+                
+                <!-- Uploaded Image Preview -->
+                <div id="imagePreviewContainer" style="display: none; text-align: center; margin: 25px 0; padding: 20px; background: #f8f9fa; border-radius: 10px; border: 2px solid #e0e0e0;">
+                    <h4 style="margin: 0 0 15px 0; color: #333;">Uploaded Image Preview</h4>
+                    <img id="uploadedImagePreview" style="max-width: 100%; max-height: 250px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" src="" alt="Uploaded Image">
+                    <div style="margin-top: 15px; color: #27ae60; font-weight: 600;">
+                        ✅ Image ready to save
+                    </div>
+                </div>
+                
+                <div class="modal-actions">
+                    <button type="button" class="cancel-btn" onclick="closeImageModal()">✕ Cancel</button>
+                    <button type="button" class="save-btn" id="saveImageBtn" onclick="saveImage()" disabled>
+                        💾 Save Image
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Enhanced Edit Gallery Details Modal -->
+    <div id="editGalleryModal" class="modal">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h2>Edit Gallery Details</h2>
+                <button class="close-modal" onclick="closeEditGalleryModal()">&times;</button>
+            </div>
+            
+            <div class="modal-body">
+                <div class="field-info">
+                    <h3 id="editGalleryName">Edit Gallery</h3>
+                    <p id="editGalleryInfo">Update gallery details and information</p>
+                </div>
+                
+                <form id="editGalleryForm">
+                    <div class="form-grid">
+                        <!-- Basic Information Section -->
+                        <div class="form-section">
+                            <h4>Basic Information</h4>
+                            
+                            <div class="form-group">
+                                <label class="required">Gallery Status</label>
+                                <select id="editStatus" name="status" class="form-control" required>
+                                    <option value="on">On</option>
+                                    <option value="off">Off</option>
+                                </select>
+                                <span class="field-description">Determines gallery visibility</span>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="required">Gallery Name</label>
+                                <input type="text" id="editName" name="name" class="form-control" required 
+                                       placeholder="Enter gallery name">
+                                <span class="field-description">Display name for the gallery</span>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Title</label>
+                                <input type="text" id="editTitle" name="title" class="form-control" 
+                                       placeholder="Enter gallery title">
+                                <span class="field-description">Optional title for SEO</span>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Subtitle</label>
+                                <input type="text" id="editSubtitle" name="subtitle" class="form-control" 
+                                       placeholder="Enter gallery subtitle">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Description</label>
+                                <textarea id="editDescription" name="description" class="form-control" 
+                                          placeholder="Enter gallery description" rows="4"></textarea>
+                                <span class="field-description">Used for music links storage</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Type & Category Section -->
+                        <div class="form-section">
+                            <h4>Type & Category</h4>
+                            
+                            <div class="form-group">
+                                <label class="required">Type 1</label>
+                                <select id="editType1" name="type1" class="form-control" required>
+                                    <option value="Product">Product</option>
+                                    <option value="Video">Video</option>
+                                    <option value="Kit">Kit</option>
+                                    <option value="Outlet">Outlet</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Type 2</label>
+                                <input type="text" id="editType2" name="type2" class="form-control" 
+                                       placeholder="Enter type 2">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Category ID</label>
+                                <input type="number" id="editCatId" name="cat_id" class="form-control" 
+                                       placeholder="Enter category ID">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Seller ID</label>
+                                <input type="text" id="editSellerId" name="seller_id" class="form-control" 
+                                       placeholder="Enter seller ID">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Cat1</label>
+                                <input type="text" id="editCat1" name="cat1" class="form-control" 
+                                       placeholder="Enter cat1">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Images Section -->
+                    <div class="form-section">
+                        <h4>Gallery Images</h4>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Image 1 URL</label>
+                                <input type="text" id="editImage1" name="image1" class="form-control" 
+                                       placeholder="Enter Image 1 URL">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Image 2 URL</label>
+                                <input type="text" id="editImage2" name="image2" class="form-control" 
+                                       placeholder="Enter Image 2 URL">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Image 3 URL</label>
+                                <input type="text" id="editImage3" name="image3" class="form-control" 
+                                       placeholder="Enter Image 3 URL">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Image 4 URL</label>
+                                <input type="text" id="editImage4" name="image4" class="form-control" 
+                                       placeholder="Enter Image 4 URL">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Aspect Ratio</label>
+                            <input type="text" id="editAspectRatio" name="aspect_ratio" class="form-control" 
+                                   placeholder="Enter aspect ratio (e.g., 16:9)">
+                        </div>
+                    </div>
+                    
+                    <!-- Display Settings Section -->
+                    <div class="form-section">
+                        <h4>Display Settings</h4>
+                        
+                        <div class="form-group">
+                            <label>Heading</label>
+                            <input type="text" id="editHeading" name="heading" class="form-control" 
+                                   placeholder="Enter heading">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Display</label>
+                            <select id="editDisplay" name="display" class="form-control">
+                                <option value="1">Yes</option>
+                                <option value="0">No</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Component IDs</label>
+                            <textarea id="editComponentiIds" name="componentiIds" class="form-control" 
+                                      placeholder="Enter component IDs (comma separated)" rows="2"></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Tags</label>
+                            <textarea id="editTags" name="tags" class="form-control" 
+                                      placeholder="Enter tags (comma separated)" rows="2"></textarea>
+                        </div>
+                    </div>
+                    
+                    <!-- Advanced Settings Section -->
+                    <div class="form-section">
+                        <h4>Advanced Settings</h4>
+                        
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="required">Priority</label>
+                                <input type="number" id="editPriority" name="priority" class="form-control" 
+                                       required min="0" max="10" step="1" placeholder="0-10">
+                                <span class="field-description">Display priority (0=lowest, 10=highest)</span>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="required">Version</label>
+                                <input type="number" id="editVersion" name="version" class="form-control" 
+                                       required min="1" max="10" step="1" placeholder="1-10">
+                                <span class="field-description">App version this gallery belongs to</span>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Type</label>
+                                <input type="text" id="editType" name="type" class="form-control" 
+                                       placeholder="Enter type">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Bottom Bar</label>
+                                <select id="editBottomBar" name="bottom_bar" class="form-control">
+                                    <option value="0">No</option>
+                                    <option value="1">Yes</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Tracking Bar</label>
+                                <input type="number" id="editTrackingBar" name="tracking_bar" class="form-control" 
+                                       min="0" placeholder="Enter tracking bar">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Show Title</label>
+                                <select id="editShowTitle" name="show_title" class="form-control">
+                                    <option value="1">Yes</option>
+                                    <option value="0">No</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Show Subtitle</label>
+                                <select id="editShowSubtitle" name="show_subtitle" class="form-control">
+                                    <option value="0">No</option>
+                                    <option value="1">Yes</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Bottom Slider</label>
+                                <select id="editBottomSlider" name="bottom_slider" class="form-control">
+                                    <option value="0">No</option>
+                                    <option value="1">Yes</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Show Banner</label>
+                                <select id="editShowBanner" name="showBanner" class="form-control">
+                                    <option value="1">Yes</option>
+                                    <option value="0">No</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Show Videos</label>
+                                <select id="editShowVideos" name="showVideos" class="form-control">
+                                    <option value="1">Yes</option>
+                                    <option value="0">No</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Show Products</label>
+                                <select id="editShowProducts" name="showProducts" class="form-control">
+                                    <option value="1">Yes</option>
+                                    <option value="0">No</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Additional Fields Section -->
+                    <div class="form-section">
+                        <h4>Additional Fields</h4>
+                        
+                        <div class="form-group">
+                            <label>Cat1 Names</label>
+                            <textarea id="editCat1Names" name="cat1_names" class="form-control" 
+                                      placeholder="Enter cat1 names" rows="2"></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Shopable Video IDs</label>
+                            <textarea id="editShopableVideoIds" name="shopable_video_ids" class="form-control" 
+                                      placeholder="Enter shopable video IDs" rows="2"></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Business ID</label>
+                            <input type="text" id="editBusinessId" name="business_id" class="form-control" 
+                                   placeholder="Enter business ID">
+                        </div>
+                    </div>
+                    
+                    <div class="modal-actions">
+                        <button type="button" class="cancel-btn" onclick="closeEditGalleryModal()">
+                            ✕ Cancel
+                        </button>
+                        <button type="submit" class="save-btn">
+                            💾 Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Music Generation Modal -->
+    <div id="musicModal" class="modal">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);">
+                <h2>🎵 Generate Music for Gallery</h2>
+                <button class="close-modal" onclick="closeMusicModal()">&times;</button>
+            </div>
+            
+            <div class="modal-body">
+                <div class="field-info">
+                    <h3 id="musicGalleryName">Gallery Name</h3>
+                    <p id="musicGalleryInfo">Generate lyrics and music for this gallery</p>
+                </div>
+                
+                <!-- Choice Section -->
+                <div id="choiceSection" style="display: none;">
+                    <div style="text-align: center; padding: 20px;">
+                        <h3 style="margin-bottom: 25px; color: #333;">How would you like to proceed?</h3>
+                        
+                        <div style="display: flex; flex-direction: column; gap: 15px; margin: 30px 0;">
+                            <button onclick="editPromptsBeforeGenerate()" style="
+                                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                                color: white;
+                                border: none;
+                                padding: 18px 25px;
+                                border-radius: 12px;
+                                cursor: pointer;
+                                font-size: 16px;
+                                font-weight: 600;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                gap: 12px;
+                                transition: all 0.3s;
+                                box-shadow: 0 6px 20px rgba(102, 126, 234, 0.2);
+                            ">
+                                <span style="font-size: 24px;">✏️</span>
+                                <div style="text-align: left;">
+                                    <div style="font-size: 18px;">Edit Prompts First</div>
+                                    <div style="font-size: 13px; opacity: 0.9; margin-top: 5px;">Edit lyrics and style prompts, then generate</div>
+                                </div>
+                            </button>
+                            
+                            <button onclick="generateImmediately()" style="
+                                background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+                                color: white;
+                                border: none;
+                                padding: 18px 25px;
+                                border-radius: 12px;
+                                cursor: pointer;
+                                font-size: 16px;
+                                font-weight: 600;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                gap: 12px;
+                                transition: all 0.3s;
+                                box-shadow: 0 6px 20px rgba(255, 107, 107, 0.2);
+                            ">
+                                <span style="font-size: 24px;">⚡</span>
+                                <div style="text-align: left;">
+                                    <div style="font-size: 18px;">Generate Immediately</div>
+                                    <div style="font-size: 13px; opacity: 0.9; margin-top: 5px;">Use default prompts to generate instantly</div>
+                                </div>
+                            </button>
+                        </div>
+                        
+                        <div style="margin-top: 25px; padding: 15px; background: #f8f9fa; border-radius: 10px; border: 2px dashed #ddd;">
+                            <div style="font-size: 14px; color: #7f8c8d;">
+                                <strong>Default prompts will be used for:</strong>
+                                <ul style="text-align: left; margin: 10px 0 10px 20px;">
+                                    <li>Lyrics generation</li>
+                                    <li>Music style description</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Prompt Editor Section -->
+                <div id="promptEditorSection" style="display: none;">
+                    <!-- Will be filled dynamically -->
+                </div>
+                
+                <!-- Progress Steps -->
+                <div id="musicProgress" style="margin-bottom: 30px; display: none;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+                        <span class="ai-step" id="step1">1. Generate</span>
+                        <span class="ai-step" id="step2">2. Upload</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="musicProgressBar"></div>
+                    </div>
+                </div>
+                
+                <!-- Loading State -->
+                <div id="musicLoading" style="text-align: center; padding: 30px; display: none;">
+                    <div style="width: 50px; height: 50px; border: 4px solid #f3f3f3; border-top: 4px solid #ff6b6b; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px;"></div>
+                    <h3 id="musicCurrentTask">Generating...</h3>
+                    <p id="musicTaskDetails">Please wait while we process your request</p>
+                </div>
+                
+                <!-- Results Display -->
+                <div id="resultsContent" style="display: none;">
+                    <!-- Lyrics Display -->
+                    <div id="lyricsResult" style="display: none;">
+                        <h4>🎶 Generated Lyrics</h4>
+                        <div class="lyrics-container" id="generatedLyrics">
+                            Lyrics will appear here...
+                        </div>
+                        <div style="margin-top: 10px;">
+                            <button onclick="copyToClipboard('generatedLyrics')" class="image-action-btn">
+                                📋 Copy Lyrics
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Style Display -->
+                    <div id="styleResult" style="display: none;">
+                        <h4>🎨 Generated Style</h4>
+                        <div class="style-container" id="generatedStyle">
+                            Style will appear here...
+                        </div>
+                        <div style="margin-top: 10px;">
+                            <button onclick="copyToClipboard('generatedStyle')" class="image-action-btn">
+                                📋 Copy Style
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="instructions">
+                        <strong>Instructions for Suno.ai:</strong>
+                        <ol>
+                            <li>Go to <a href="https://suno.ai" target="_blank">suno.ai</a></li>
+                            <li>Select "Create" → "Custom Mode"</li>
+                            <li>Paste the lyrics above</li>
+                            <li>Use the style description for guidance</li>
+                            <li>In style settings, select: 30 seconds length</li>
+                            <li>Click "Generate" and wait for the music</li>
+                            <li>Download the generated music file</li>
+                            <li>Upload it below</li>
+                        </ol>
+                    </div>
+                    
+                    <!-- Music File Upload -->
+                    <h4>📁 Upload Generated Music</h4>
+                    <div class="upload-container" id="musicUploadContainer">
+                        <input type="file" id="musicFileInput" class="file-input" accept="audio/*,.mp3,.wav,.m4a">
+                        <button type="button" class="upload-btn" onclick="document.getElementById('musicFileInput').click()">
+                            🎵 Choose Music File to Upload
+                        </button>
+                        <p style="margin: 15px 0; color: #666;">or drag and drop audio file here</p>
+                        <div style="font-size: 13px; color: #7f8c8d; margin-top: 15px; padding: 10px; background: rgba(255,255,255,0.5); border-radius: 6px;">
+                            <strong>Supported formats:</strong> MP3, WAV, M4A<br>
+                            <strong>Maximum file size:</strong> 10MB<br>
+                            <strong>Recommended:</strong> 30-second clip from Suno.ai
+                        </div>
+                    </div>
+                    
+                    <!-- Uploaded Music Preview -->
+                    <div id="musicPreviewContainer" style="display: none; text-align: center; margin: 25px 0; padding: 20px; background: #f8f9fa; border-radius: 10px; border: 2px solid #e0e0e0;">
+                        <h4 style="margin: 0 0 15px 0; color: #333;">Uploaded Music Preview</h4>
+                        <audio id="uploadedMusicPreview" class="audio-preview" controls>
+                            Your browser does not support the audio element.
+                        </audio>
+                        <div id="uploadStatus" class="upload-status" style="margin-top: 15px;"></div>
+                    </div>
+                </div>
+                
+                <!-- Error State -->
+                <div id="musicError" style="display: none; text-align: center; padding: 30px;">
+                    <div style="font-size: 48px; margin-bottom: 20px;">❌</div>
+                    <h3>Generation Failed</h3>
+                    <p id="musicErrorMessage">Error message will appear here</p>
+                    <button onclick="retryGeneration()" style="margin-top: 20px; background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%); color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                        🔄 Retry
+                    </button>
+                </div>
+            </div>
+            
+            <div class="modal-actions">
+                <button type="button" class="cancel-btn" onclick="closeMusicModal()">
+                    ✕ Close
+                </button>
+                <button type="button" class="save-btn" id="saveMusicBtn" style="display: none; background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);" onclick="saveMusicToGallery()">
+                    💾 Save Music File
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let allGalleries = [];
+        let filteredGalleries = [];
+        let searchTimeout = null;
+        
+        // Music generation variables
+        let currentMusicGallery = null;
+        let generatedLyrics = '';
+        let generatedStyle = '';
+        let uploadedMusicUrl = null;
+        let uploadedMusicFile = null;
+        let currentGenerationType = null;
+        
+        // Prompts storage
+        const defaultPrompts = {
+            lyrics: `Write a 30-second song inspired by the following gallery name.
+
+Style: Warm, modern, cozy, aesthetic, lightly funny
+Mood: Home comfort, everyday love, handcrafted beauty, Indian warmth
+Genre: Indie pop / soft lo-fi / acoustic chill (Indian indie vibe)
+Tempo: Medium
+
+Requirements:
+
+Convert gallery name into emotional, poetic lyrics
+
+Reflect Indian sensibilities (homely vibes, small joys, cozy chaos, "ghar wali feeling")
+
+Highlight artistic / gallery feel naturally
+
+Keep the tone relatable, warm, slightly playful
+
+Avoid sounding like an advertisement
+
+Suitable for a 30-second Suno clip (8–10 short lines)
+
+Include a catchy hook that evokes creativity and beauty
+
+Gallery Name: {galleryName}
+Description: {description}
+Tags: {tags}
+
+Generate ONLY the lyrics, no explanations or additional text.`,
+            
+            style: `Based on the following gallery information, suggest a detailed music style description for a 30-second song.
+
+Consider:
+1. Music genre and sub-genre
+2. Mood and emotional tone
+3. Tempo and rhythm
+4. Instrumentation
+5. Vocal style (if any)
+6. Production style
+7. Cultural influences
+8. Similar artists or references
+
+Gallery Information:
+Name: {galleryName}
+Description: {description}
+Type: {type}
+Tags: {tags}
+
+Requirements:
+- Be specific and detailed
+- Suggest a style that matches the gallery's theme
+- Include practical suggestions for Suno.ai
+- Keep it concise but comprehensive
+- Focus on Indian indie/folk/pop influences if appropriate
+
+Generate ONLY the style description, no explanations or additional text.`
+        };
+        
+        let currentPrompts = JSON.parse(JSON.stringify(defaultPrompts));
+        
+        // Image upload variables
+        let currentGalleryId = null;
+        let currentImageField = null;
+        let currentImageUrl = null;
+        let uploadedImageUrl = null;
+        let uploadedFile = null;
+        
+        // Edit gallery variables
+        let currentEditGalleryId = null;
+        
+        // Filter counts
+        let filterCounts = {
+            status: { all: 0, on: 0, off: 0 },
+            priority: {},
+            version: {},
+            type: {}
+        };
+        
+        // Image loader for smooth loading
+        class ImageLoader {
+            constructor() {
+                this.images = new Map();
+            }
+            
+            loadImage(url, element) {
+                if (!url || url.trim() === '') {
+                    element.src = 'https://via.placeholder.com/300x200?text=No+Image';
+                    element.classList.add('loaded');
+                    return;
+                }
+                
+                // Check if image is already loaded
+                if (this.images.has(url)) {
+                    const imgData = this.images.get(url);
+                    if (imgData.loaded) {
+                        element.src = url;
+                        element.classList.add('loaded');
+                    } else {
+                        imgData.elements.push(element);
+                    }
+                    return;
+                }
+                
+                // Create new image loading
+                const img = new Image();
+                const imgData = {
+                    loaded: false,
+                    elements: [element]
+                };
+                
+                this.images.set(url, imgData);
+                
+                img.onload = () => {
+                    imgData.loaded = true;
+                    imgData.elements.forEach(el => {
+                        el.src = url;
+                        setTimeout(() => {
+                            el.classList.add('loaded');
+                        }, 10);
+                    });
+                };
+                
+                img.onerror = () => {
+                    imgData.loaded = true;
+                    imgData.elements.forEach(el => {
+                        el.src = 'https://via.placeholder.com/300x200?text=Image+Error';
+                        el.classList.add('loaded');
+                    });
+                };
+                
+                // Start loading
+                img.src = url;
+            }
+        }
+        
+        const imageLoader = new ImageLoader();
+        
+        // Helper function to get full image URL
+        function getFullImageUrl(url) {
+            if (!url || url.trim() === '') {
+                return '';
+            }
+            
+            // If already a full URL
+            if (url.startsWith('http://') || url.startsWith('https://')) {
+                return url;
+            }
+            
+            // If it's a relative path
+            if (url.startsWith('uploads/') || url.startsWith('temp_images/')) {
+                return 'https://zulushop.in/' + url;
+            }
+            
+            // Default: prepend base URL
+            return 'https://zulushop.in/' + url;
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            loadGalleries();
+            
+            // Setup search
+            document.getElementById('searchInput').addEventListener('input', function() {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    filterGalleries();
+                }, 300);
+            });
+            
+            // Setup filter change events
+            document.getElementById('statusFilter').addEventListener('change', function() {
+                updateFilterOptions();
+                filterGalleries();
+            });
+            
+            document.getElementById('priorityFilter').addEventListener('change', function() {
+                updateFilterOptions();
+                filterGalleries();
+            });
+            
+            document.getElementById('versionFilter').addEventListener('change', function() {
+                updateFilterOptions();
+                filterGalleries();
+            });
+            
+            document.getElementById('typeFilter').addEventListener('change', function() {
+                updateFilterOptions();
+                filterGalleries();
+            });
+            
+            // Form validation
+            setupFormValidation();
+            
+            // Load saved prompts from localStorage
+            loadSavedPrompts();
+        });
+        
+        // Form validation setup
+        function setupFormValidation() {
+            const form = document.getElementById('editGalleryForm');
+            
+            // Priority validation
+            document.getElementById('editPriority').addEventListener('input', function() {
+                validatePriority(this);
+            });
+            
+            // Version validation
+            document.getElementById('editVersion').addEventListener('input', function() {
+                validateVersion(this);
+            });
+            
+            // Form submission validation
+            form.addEventListener('submit', function(e) {
+                if (!validateGalleryForm()) {
+                    e.preventDefault();
+                    showMessage('❌ Please fix the errors in the form', 'error');
+                }
+            });
+        }
+        
+        function validatePriority(input) {
+            const value = parseInt(input.value);
+            if (value < 0 || value > 10) {
+                input.classList.add('invalid');
+                input.classList.remove('valid');
+                return false;
+            } else {
+                input.classList.add('valid');
+                input.classList.remove('invalid');
+                return true;
+            }
+        }
+        
+        function validateVersion(input) {
+            const value = parseInt(input.value);
+            if (value < 1 || value > 10) {
+                input.classList.add('invalid');
+                input.classList.remove('valid');
+                return false;
+            } else {
+                input.classList.add('valid');
+                input.classList.remove('invalid');
+                return true;
+            }
+        }
+        
+        function validateGalleryForm() {
+            let isValid = true;
+            
+            // Check required fields
+            const requiredFields = ['editStatus', 'editName', 'editPriority', 'editVersion', 'editType1'];
+            requiredFields.forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                if (!field.value.trim()) {
+                    field.classList.add('invalid');
+                    isValid = false;
+                } else {
+                    field.classList.remove('invalid');
+                }
+            });
+            
+            return isValid;
+        }
+        
+        // Load saved prompts from localStorage
+        function loadSavedPrompts() {
+            const savedPrompts = localStorage.getItem('galleryPrompts');
+            if (savedPrompts) {
+                try {
+                    currentPrompts = JSON.parse(savedPrompts);
+                } catch (e) {
+                    console.error('Error loading saved prompts:', e);
+                }
+            }
+        }
+        
+        // Save prompts to localStorage
+        function savePrompts() {
+            localStorage.setItem('galleryPrompts', JSON.stringify(currentPrompts));
+        }
+        
+        // Load galleries with enhanced data
+        async function loadGalleries() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('error').style.display = 'none';
+            document.getElementById('galleriesContainer').innerHTML = '';
+            
+            try {
+                const response = await fetch('/api/galleries');
+                const data = await response.json();
+                
+                if (data && data.success && Array.isArray(data.data)) {
+                    allGalleries = data.data.map((gallery, index) => {
+                        // Get the main image
+                        let mainImage = null;
+                        
+                        // Check for images in different fields
+                        const possibleImageFields = ['image1', 'image_1', 'main_image', 'thumbnail'];
+                        
+                        for (const field of possibleImageFields) {
+                            if (gallery[field]) {
+                                mainImage = gallery[field];
+                                if (mainImage) break;
+                            }
+                        }
+                        
+                        // Check if description has music links
+                        let hasMusic = false;
+                        let musicLinks = [];
+                        if (gallery.description) {
+                            const musicMatch = gallery.description.match(/🎵 Music: (https?:\/\/[^\s]+)/g);
+                            if (musicMatch) {
+                                hasMusic = true;
+                                musicLinks = musicMatch;
+                            }
+                        }
+                        
+                        return {
+                            ...gallery,
+                            id: gallery.id || index + 1,
+                            name: gallery.name || gallery.title || 'Unnamed Gallery',
+                            image: mainImage ? getFullImageUrl(mainImage) : null,
+                            hasImage: !!mainImage,
+                            hasMusic: hasMusic,
+                            musicLinks: musicLinks,
+                            priority: Number(gallery.priority) || 0,
+                            version: Number(gallery.version) || 1,
+                            status: gallery.status || 'on',
+                            type1: gallery.type1 || 'Product'
+                        };
+                    });
+                    
+                    // Calculate initial filter counts
+                    calculateFilterCounts();
+                    
+                    // Populate filter dropdowns
+                    populateFilters();
+                    
+                    showMessage(`✅ Loaded ${allGalleries.length} galleries successfully`, 'success');
+                    filterGalleries();
+                } else {
+                    throw new Error(data?.error || 'Invalid data format');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('error').style.display = 'block';
+                document.getElementById('error').textContent = 'Error loading galleries: ' + error.message;
+                showMessage('❌ Failed to load galleries', 'error');
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+        
+        // Calculate filter counts
+        function calculateFilterCounts() {
+            // Reset counts
+            filterCounts = {
+                status: { all: allGalleries.length, on: 0, off: 0 },
+                priority: {},
+                version: {},
+                type: {}
+            };
+            
+            // Calculate counts
+            allGalleries.forEach(gallery => {
+                // Status counts
+                if (gallery.status === 'on') {
+                    filterCounts.status['on']++;
+                } else {
+                    filterCounts.status['off']++;
+                }
+                
+                // Priority counts
+                if (gallery.priority !== undefined) {
+                    const priority = String(gallery.priority);
+                    if (!filterCounts.priority[priority]) {
+                        filterCounts.priority[priority] = 0;
+                    }
+                    filterCounts.priority[priority]++;
+                }
+                
+                // Version counts
+                if (gallery.version) {
+                    const version = String(gallery.version);
+                    if (!filterCounts.version[version]) {
+                        filterCounts.version[version] = 0;
+                    }
+                    filterCounts.version[version]++;
+                }
+                
+                // Type counts
+                if (gallery.type1) {
+                    const type = String(gallery.type1);
+                    if (!filterCounts.type[type]) {
+                        filterCounts.type[type] = 0;
+                    }
+                    filterCounts.type[type]++;
+                }
+            });
+            
+            // Update filter count badges
+            updateFilterCountBadges();
+        }
+        
+        // Update filter count badges
+        function updateFilterCountBadges() {
+            const statusFilter = document.getElementById('statusFilter');
+            const priorityFilter = document.getElementById('priorityFilter');
+            const versionFilter = document.getElementById('versionFilter');
+            const typeFilter = document.getElementById('typeFilter');
+            
+            // Get selected values
+            const selectedStatus = statusFilter.value;
+            const selectedPriority = priorityFilter.value;
+            const selectedVersion = versionFilter.value;
+            const selectedType = typeFilter.value;
+            
+            // Calculate counts for current selection
+            let filtered = [...allGalleries];
+            
+            if (selectedStatus !== 'all') {
+                filtered = filtered.filter(g => g.status === selectedStatus);
+            }
+            if (selectedPriority !== 'all') {
+                filtered = filtered.filter(g => String(g.priority) === selectedPriority);
+            }
+            if (selectedVersion !== 'all') {
+                filtered = filtered.filter(g => String(g.version) === selectedVersion);
+            }
+            if (selectedType !== 'all') {
+                filtered = filtered.filter(g => g.type1 === selectedType);
+            }
+            
+            // Update count badges
+            document.getElementById('statusCount').textContent = filtered.length;
+            
+            // Count unique priorities in filtered results
+            const uniquePriorities = new Set(filtered.map(g => g.priority).filter(p => p !== undefined));
+            document.getElementById('priorityCount').textContent = uniquePriorities.size;
+            
+            // Count unique versions in filtered results
+            const uniqueVersions = new Set(filtered.map(g => g.version).filter(v => v));
+            document.getElementById('versionCount').textContent = uniqueVersions.size;
+            
+            // Count unique types in filtered results
+            const uniqueTypes = new Set(filtered.map(g => g.type1).filter(t => t));
+            document.getElementById('typeCount').textContent = uniqueTypes.size;
+        }
+        
+        // Populate filter dropdowns with counts
+        function populateFilters() {
+            const priorityFilter = document.getElementById('priorityFilter');
+            const versionFilter = document.getElementById('versionFilter');
+            const typeFilter = document.getElementById('typeFilter');
+            
+            // Clear existing options (keep "All" option)
+            while (priorityFilter.options.length > 1) priorityFilter.remove(1);
+            while (versionFilter.options.length > 1) versionFilter.remove(1);
+            while (typeFilter.options.length > 1) typeFilter.remove(1);
+            
+            // Get unique values from ALL galleries
+            const priorities = [...new Set(allGalleries.map(g => g.priority).filter(p => p !== undefined))].sort((a, b) => a - b);
+            const versions = [...new Set(allGalleries.map(g => g.version).filter(v => v))].sort((a, b) => a - b);
+            const types = [...new Set(allGalleries.map(g => g.type1).filter(t => t))].sort();
+            
+            // Sort by count (descending)
+            priorities.sort((a, b) => filterCounts.priority[b] - filterCounts.priority[a]);
+            versions.sort((a, b) => filterCounts.version[b] - filterCounts.version[a]);
+            types.sort((a, b) => filterCounts.type[b] - filterCounts.type[a]);
+            
+            // Populate priority filter with counts
+            priorities.forEach(priority => {
+                const count = filterCounts.priority[priority] || 0;
+                const option = new Option(`Priority ${priority} (${count})`, priority);
+                priorityFilter.add(option);
+            });
+            
+            // Populate version filter with counts
+            versions.forEach(version => {
+                const count = filterCounts.version[version] || 0;
+                const option = new Option(`Version ${version} (${count})`, version);
+                versionFilter.add(option);
+            });
+            
+            // Populate type filter with counts
+            types.forEach(type => {
+                const count = filterCounts.type[type] || 0;
+                const option = new Option(`${type} (${count})`, type);
+                typeFilter.add(option);
+            });
+        }
+        
+        // Filter galleries based on search and filters
+        function filterGalleries() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const statusFilter = document.getElementById('statusFilter').value;
+            const priorityFilter = document.getElementById('priorityFilter').value;
+            const versionFilter = document.getElementById('versionFilter').value;
+            const typeFilter = document.getElementById('typeFilter').value;
+            
+            filteredGalleries = allGalleries.filter(gallery => {
+                // Search filter
+                if (searchTerm) {
+                    const searchable = [
+                        gallery.name,
+                        gallery.title || '',
+                        gallery.description || '',
+                        gallery.heading || '',
+                        gallery.subtitle || '',
+                        gallery.tags || ''
+                    ].join(' ').toLowerCase();
+                    
+                    if (!searchable.includes(searchTerm)) {
+                        return false;
+                    }
+                }
+                
+                // Status filter
+                if (statusFilter !== 'all') {
+                    if (gallery.status !== statusFilter) {
+                        return false;
+                    }
+                }
+                
+                // Priority filter
+                if (priorityFilter !== 'all') {
+                    if (String(gallery.priority) !== priorityFilter) {
+                        return false;
+                    }
+                }
+                
+                // Version filter
+                if (versionFilter !== 'all') {
+                    if (String(gallery.version) !== versionFilter) {
+                        return false;
+                    }
+                }
+                
+                // Type filter
+                if (typeFilter !== 'all') {
+                    if (gallery.type1 !== typeFilter) {
+                        return false;
+                    }
+                }
+                
+                return true;
+            });
+            
+            displayGalleries();
+        }
+        
+        // Display galleries in grid
+        function displayGalleries() {
+            const container = document.getElementById('galleriesContainer');
+            
+            if (filteredGalleries.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div style="font-size: 24px; margin-bottom: 10px;">🔍</div>
+                        <div style="font-size: 20px; font-weight: 600; margin-bottom: 10px; color: #333;">No Galleries Found</div>
+                        <div style="color: #7f8c8d; margin-bottom: 20px;">Try adjusting your search or filters</div>
+                        <button onclick="resetFilters()" style="background: #795548; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                            Reset All Filters
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            filteredGalleries.forEach(gallery => {
+                html += `
+                <div class="gallery-card">
+                    <div class="card-image" onclick="viewImage('${gallery.image || ''}')">
+                        <img data-src="${gallery.image || ''}" alt="${gallery.name}" 
+                             onerror="this.src='https://via.placeholder.com/300x200?text=No+Image'; this.classList.add('loaded')">
+                        <div class="image-actions">
+                            <button class="image-action-btn" onclick="openImageModal(${gallery.id}, 'image1', '${encodeURIComponent(gallery.image || '')}'); event.stopPropagation();">
+                                ✏️ Edit Image
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <div class="card-title">${gallery.name}</div>
+                        <div class="card-id">ID: ${gallery.id} | ${gallery.type1 || 'Product'}</div>
+                        
+                        <!-- Status and Priority Section -->
+                        <div class="card-status">
+                            <span class="status-badge ${gallery.status === 'on' ? 'active' : 'inactive'}">
+                                ${gallery.status === 'on' ? '✅ On' : '❌ Off'}
+                            </span>
+                            <span class="priority-badge" title="Priority">
+                                P${gallery.priority}
+                            </span>
+                        </div>
+                        
+                        <!-- Info Tags with Edit Option -->
+                        <div class="card-info">
+                            <span class="info-tag version" 
+                                  onclick="setFilter('versionFilter', '${gallery.version}')"
+                                  title="Click to filter by this version">
+                                📱 V${gallery.version}
+                            </span>
+                            
+                            <!-- Music Indicator -->
+                            ${gallery.hasMusic ? `
+                                <span class="info-tag" style="background: linear-gradient(135deg, #4CAF50 0%, #388e3c 100%); color: white;"
+                                      title="Has music link in description">
+                                    🎵 Has Music
+                                </span>
+                            ` : ''}
+                            
+                            ${gallery.tags ? `
+                                <span class="info-tag" style="background: linear-gradient(135deg, #a29bfe 0%, #6c5ce7 100%); color: white;">
+                                    🏷️ ${gallery.tags.split(',').slice(0, 2).join(', ')}
+                                </span>
+                            ` : ''}
+                            
+                            <span class="info-tag edit" 
+                                  onclick="openEditGalleryModal(${gallery.id})"
+                                  title="Edit all gallery details">
+                                ✏️ Edit Details
+                            </span>
+                            
+                            <span class="info-tag music" 
+                                  onclick="showGenerateOptionsForGallery(${gallery.id})"
+                                  title="Generate music and style based on gallery name">
+                                🎵 Generate Music
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+            
+            // Load images smoothly after DOM is updated
+            setTimeout(() => {
+                document.querySelectorAll('.card-image img').forEach(img => {
+                    const src = img.getAttribute('data-src');
+                    if (src) {
+                        imageLoader.loadImage(src, img);
+                    } else {
+                        img.src = 'https://via.placeholder.com/300x200?text=No+Image';
+                        img.classList.add('loaded');
+                    }
+                });
+            }, 10);
+        }
+        
+        function resetFilters() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('statusFilter').value = 'all';
+            document.getElementById('priorityFilter').value = 'all';
+            document.getElementById('versionFilter').value = 'all';
+            document.getElementById('typeFilter').value = 'all';
+            filterGalleries();
+        }
+        
+        // Set filter from click on tag
+        function setFilter(filterId, value) {
+            const filter = document.getElementById(filterId);
+            filter.value = value;
+            filterGalleries();
+        }
+        
+        // Update filter options
+        function updateFilterOptions() {
+            updateFilterCountBadges();
+        }
+        
+        // Enhanced Edit Gallery Modal
+        function openEditGalleryModal(galleryId) {
+            const gallery = allGalleries.find(g => g.id == galleryId);
+            if (!gallery) {
+                showMessage('❌ Gallery not found', 'error');
+                return;
+            }
+            
+            currentEditGalleryId = galleryId;
+            
+            // Set modal info
+            document.getElementById('editGalleryName').textContent = `Edit: ${gallery.name}`;
+            document.getElementById('editGalleryInfo').textContent = `Gallery ID: ${galleryId}`;
+            
+            // Set form values for all fields
+            const fields = [
+                'status', 'name', 'title', 'subtitle', 'description',
+                'type1', 'type2', 'cat_id', 'seller_id', 'cat1',
+                'image1', 'image2', 'image3', 'image4', 'aspect_ratio',
+                'heading', 'display', 'componentiIds', 'tags', 'priority',
+                'version', 'type', 'bottom_bar', 'bottom_slider', 'tracking_bar',
+                'show_title', 'show_subtitle', 'showBanner', 'showVideos', 'showProducts',
+                'cat1_names', 'shopable_video_ids', 'business_id'
+            ];
+            
+            fields.forEach(field => {
+                const element = document.getElementById('edit' + field.charAt(0).toUpperCase() + field.slice(1));
+                if (element) {
+                    element.value = gallery[field] || '';
+                    
+                    // Special handling for boolean fields
+                    if (field === 'display' || field === 'bottom_bar' || field === 'bottom_slider' || 
+                        field === 'showBanner' || field === 'showVideos' || field === 'showProducts') {
+                        element.value = gallery[field] ? '1' : '0';
+                    }
+                    
+                    // Special handling for numeric fields
+                    if (field === 'show_title' || field === 'show_subtitle' || field === 'tracking_bar') {
+                        element.value = gallery[field] || '0';
+                    }
+                }
+            });
+            
+            // Clear validation classes
+            const formControls = document.querySelectorAll('.form-control');
+            formControls.forEach(control => {
+                control.classList.remove('invalid', 'valid');
+            });
+            
+            // Show modal with animation
+            const modal = document.getElementById('editGalleryModal');
+            modal.style.display = 'block';
+            
+            // Focus first field
+            setTimeout(() => {
+                document.getElementById('editName').focus();
+            }, 100);
+        }
+        
+        // Close gallery edit modal
+        function closeEditGalleryModal() {
+            const modal = document.getElementById('editGalleryModal');
+            modal.style.display = 'none';
+            currentEditGalleryId = null;
+            
+            // Reset form validation
+            const formControls = document.querySelectorAll('.form-control');
+            formControls.forEach(control => {
+                control.classList.remove('invalid', 'valid');
+            });
+        }
+        
+        // Handle gallery edit form submission
+        document.getElementById('editGalleryForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            if (!validateGalleryForm()) {
+                return;
+            }
+            
+            // Collect all form data
+            const formData = {};
+            const fields = [
+                'status', 'name', 'title', 'subtitle', 'description',
+                'type1', 'type2', 'cat_id', 'seller_id', 'cat1',
+                'image1', 'image2', 'image3', 'image4', 'aspect_ratio',
+                'heading', 'display', 'componentiIds', 'tags', 'priority',
+                'version', 'type', 'bottom_bar', 'bottom_slider', 'tracking_bar',
+                'show_title', 'show_subtitle', 'showBanner', 'showVideos', 'showProducts',
+                'cat1_names', 'shopable_video_ids', 'business_id'
+            ];
+            
+            fields.forEach(field => {
+                const element = document.getElementById('edit' + field.charAt(0).toUpperCase() + field.slice(1));
+                if (element) {
+                    const value = element.value.trim();
+                    if (value !== '') {
+                        // Convert string booleans to actual booleans
+                        if (field === 'display' || field === 'bottom_bar' || field === 'bottom_slider' || 
+                            field === 'showBanner' || field === 'showVideos' || field === 'showProducts') {
+                            formData[field] = value === '1';
+                        } else if (field === 'show_title' || field === 'show_subtitle' || field === 'tracking_bar' ||
+                                  field === 'priority' || field === 'version' || field === 'cat_id') {
+                            formData[field] = parseInt(value) || 0;
+                        } else {
+                            formData[field] = value;
+                        }
+                    }
+                }
+            });
+            
+            if (Object.keys(formData).length === 0) {
+                showMessage('ℹ️ No changes to save', 'info');
+                return;
+            }
+            
+            try {
+                showMessage('🔄 Saving changes...', 'info');
+                
+                // Add loading state to form
+                const saveBtn = document.querySelector('#editGalleryForm .save-btn');
+                const originalText = saveBtn.innerHTML;
+                saveBtn.innerHTML = '⏳ Saving...';
+                saveBtn.disabled = true;
+                
+                const response = await fetch(`/api/galleries/${currentEditGalleryId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                const result = await response.json();
+                
+                // Restore button
+                saveBtn.innerHTML = originalText;
+                saveBtn.disabled = false;
+                
+                if (result.success) {
+                    // Add success animation
+                    document.querySelector('.modal-content').classList.add('form-success');
+                    
+                    showMessage('✅ Gallery updated successfully!', 'success');
+                    
+                    // Update the gallery in allGalleries array
+                    const galleryIndex = allGalleries.findIndex(g => g.id == currentEditGalleryId);
+                    if (galleryIndex !== -1) {
+                        // Update all fields
+                        Object.keys(formData).forEach(key => {
+                            allGalleries[galleryIndex][key] = formData[key];
+                        });
+                        
+                        // Update derived fields
+                        if (formData.image1) {
+                            allGalleries[galleryIndex].image = getFullImageUrl(formData.image1);
+                            allGalleries[galleryIndex].hasImage = true;
+                        }
+                        
+                        // Check if description has music links
+                        if (formData.description) {
+                            const musicMatch = formData.description.match(/🎵 Music: (https?:\/\/[^\s]+)/g);
+                            allGalleries[galleryIndex].hasMusic = !!musicMatch;
+                            allGalleries[galleryIndex].musicLinks = musicMatch || [];
+                        }
+                    }
+                    
+                    // Refresh display and filters
+                    calculateFilterCounts();
+                    updateFilterOptions();
+                    filterGalleries();
+                    
+                    setTimeout(() => {
+                        closeEditGalleryModal();
+                        // Remove success animation
+                        setTimeout(() => {
+                            document.querySelector('.modal-content').classList.remove('form-success');
+                        }, 300);
+                    }, 1500);
+                } else {
+                    showMessage(`❌ Error: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showMessage(`❌ Network error: ${error.message}`, 'error');
+                // Restore button
+                const saveBtn = document.querySelector('#editGalleryForm .save-btn');
+                saveBtn.innerHTML = '💾 Save Changes';
+                saveBtn.disabled = false;
+            }
+        });
+        
+        // Image Modal Functions
+        function openImageModal(galleryId, field, imageUrl) {
+            currentGalleryId = galleryId;
+            currentImageField = field;
+            currentImageUrl = decodeURIComponent(imageUrl || '');
+            
+            // Set modal info
+            document.getElementById('imageFieldName').textContent = 'Gallery Image';
+            document.getElementById('imageFieldInfo').textContent = `Gallery ID: ${galleryId}`;
+            
+            // Show/hide current image
+            const currentImageContainer = document.getElementById('currentImageContainer');
+            const currentImagePreview = document.getElementById('currentImagePreview');
+            
+            if (currentImageUrl && currentImageUrl.trim() !== '') {
+                currentImagePreview.src = getFullImageUrl(currentImageUrl);
+                currentImagePreview.alt = 'Current Image';
+                currentImagePreview.onerror = function() {
+                    this.src = 'https://via.placeholder.com/200x150?text=Image+Not+Found';
+                };
+                currentImageContainer.style.display = 'block';
+            } else {
+                currentImageContainer.style.display = 'none';
+            }
+            
+            // Reset upload section
+            resetUploadSection();
+            
+            // Setup drag and drop
+            setupDragAndDrop();
+            
+            // Show modal
+            document.getElementById('imageUploadModal').style.display = 'block';
+        }
+        
+        function closeImageModal() {
+            document.getElementById('imageUploadModal').style.display = 'none';
+            currentGalleryId = null;
+            currentImageField = null;
+            currentImageUrl = null;
+            uploadedImageUrl = null;
+            uploadedFile = null;
+        }
+        
+        function viewCurrentImage() {
+            if (currentImageUrl) {
+                window.open(getFullImageUrl(currentImageUrl), '_blank');
+            }
+        }
+        
+        function deleteCurrentImage() {
+            if (confirm('Are you sure you want to delete this image?')) {
+                saveImageToServer('');
+            }
+        }
+        
+        function setupDragAndDrop() {
+            const uploadContainer = document.getElementById('uploadContainer');
+            const fileInput = document.getElementById('imageFileInput');
+            
+            // Prevent default drag behaviors
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                uploadContainer.addEventListener(eventName, preventDefaults, false);
+                document.body.addEventListener(eventName, preventDefaults, false);
+            });
+            
+            // Highlight drop zone
+            ['dragenter', 'dragover'].forEach(eventName => {
+                uploadContainer.addEventListener(eventName, highlight, false);
+            });
+            
+            ['dragleave', 'drop'].forEach(eventName => {
+                uploadContainer.addEventListener(eventName, unhighlight, false);
+            });
+            
+            // Handle dropped files
+            uploadContainer.addEventListener('drop', handleDrop, false);
+            
+            // Handle file input change
+            fileInput.addEventListener('change', handleFileSelect, false);
+            
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            
+            function highlight() {
+                uploadContainer.classList.add('dragover');
+            }
+            
+            function unhighlight() {
+                uploadContainer.classList.remove('dragover');
+            }
+            
+            function handleDrop(e) {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                handleFiles(files);
+            }
+            
+            function handleFileSelect(e) {
+                const files = e.target.files;
+                handleFiles(files);
+            }
+        }
+        
+        function handleFiles(files) {
+            if (files.length === 0) return;
+            
+            const file = files[0];
+            
+            // Validate file type
+            const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+            if (!validTypes.includes(file.type)) {
+                showMessage('❌ Please select a valid image file (JPG, PNG, GIF, WEBP)', 'error');
+                return;
+            }
+            
+            // Validate file size (10MB max)
+            if (file.size > 10 * 1024 * 1024) {
+                showMessage('❌ Image size must be less than 10MB', 'error');
+                return;
+            }
+            
+            uploadedFile = file;
+            
+            // Show preview
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const preview = document.getElementById('uploadedImagePreview');
+                preview.src = e.target.result;
+                document.getElementById('imagePreviewContainer').style.display = 'block';
+                document.getElementById('saveImageBtn').disabled = false;
+            };
+            reader.readAsDataURL(file);
+            
+            // Upload the file
+            uploadImage(file);
+        }
+        
+        async function uploadImage(file) {
+            try {
+                const formData = new FormData();
+                formData.append('image', file);
+                
+                const response = await fetch('https://api.zulushop.in/api/v1/user/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const responseText = await response.text();
+                
+                if (response.status >= 200 && response.status < 300) {
+                    let jsonRes;
+                    try {
+                        jsonRes = JSON.parse(responseText);
+                    } catch (e) {
+                        throw new Error('Invalid response from server');
+                    }
+                    
+                    // Extract URL from response
+                    let url;
+                    
+                    if (jsonRes.url && typeof jsonRes.url === 'string') {
+                        url = jsonRes.url;
+                    } else if (jsonRes.image_url && typeof jsonRes.image_url === 'string') {
+                        url = jsonRes.image_url;
+                    } else if (jsonRes.data) {
+                        if (typeof jsonRes.data === 'string') {
+                            url = jsonRes.data;
+                        } else if (typeof jsonRes.data === 'object') {
+                            if (jsonRes.data.url && typeof jsonRes.data.url === 'string') {
+                                url = jsonRes.data.url;
+                            } else if (jsonRes.data.image_url && typeof jsonRes.data.image_url === 'string') {
+                                url = jsonRes.data.image_url;
+                            }
+                        }
+                    }
+                    
+                    if (url) {
+                        uploadedImageUrl = url;
+                        showMessage('✅ Image uploaded successfully!', 'success');
+                        return url;
+                    } else {
+                        throw new Error('No image URL in response');
+                    }
+                } else {
+                    throw new Error(`Upload failed: ${response.status}`);
+                }
+            } catch (error) {
+                showMessage(`❌ Upload failed: ${error.message}`, 'error');
+                document.getElementById('saveImageBtn').disabled = true;
+                throw error;
+            }
+        }
+        
+        function resetUploadSection() {
+            uploadedImageUrl = null;
+            uploadedFile = null;
+            document.getElementById('imagePreviewContainer').style.display = 'none';
+            document.getElementById('saveImageBtn').disabled = true;
+            document.getElementById('imageFileInput').value = '';
+        }
+        
+        function saveImage() {
+            if (uploadedImageUrl) {
+                saveImageToServer(uploadedImageUrl);
+            } else {
+                showMessage('❌ Please upload an image first', 'error');
+            }
+        }
+        
+        async function saveImageToServer(imageUrl) {
+            try {
+                showMessage('🔄 Saving image...', 'info');
+                
+                const updateData = {};
+                updateData[currentImageField] = imageUrl;
+                
+                const response = await fetch(`/api/galleries/${currentGalleryId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(updateData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showMessage('✅ Image saved successfully!', 'success');
+                    
+                    // Update the gallery in allGalleries array
+                    const galleryIndex = allGalleries.findIndex(g => g.id == currentGalleryId);
+                    if (galleryIndex !== -1) {
+                        // Update the specific image field
+                        allGalleries[galleryIndex][currentImageField] = imageUrl;
+                        
+                        // If this is image1, also update main image
+                        if (currentImageField === 'image1') {
+                            allGalleries[galleryIndex].image = imageUrl;
+                            allGalleries[galleryIndex].hasImage = !!imageUrl;
+                        }
+                    }
+                    
+                    // Refresh display
+                    filterGalleries();
+                    
+                    setTimeout(() => {
+                        closeImageModal();
+                    }, 1000);
+                } else {
+                    showMessage(`❌ Error: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showMessage(`❌ Network error: ${error.message}`, 'error');
+            }
+        }
+        
+        function viewImage(url) {
+            if (url) {
+                window.open(url, '_blank');
+            }
+        }
+        
+        // Music Generation Functions
+        function showGenerateOptionsForGallery(galleryId) {
+            const gallery = allGalleries.find(g => g.id == galleryId);
+            if (!gallery) {
+                showMessage('❌ Gallery not found', 'error');
+                return;
+            }
+            
+            currentMusicGallery = gallery;
+            
+            // Reset UI
+            const modal = document.getElementById('musicModal');
+            const galleryName = document.getElementById('musicGalleryName');
+            const galleryInfo = document.getElementById('musicGalleryInfo');
+            
+            galleryName.textContent = gallery.name;
+            galleryInfo.textContent = `ID: ${gallery.id} | Generate music and style based on gallery name`;
+            
+            // Reset all sections
+            document.getElementById('choiceSection').style.display = 'block';
+            document.getElementById('promptEditorSection').style.display = 'none';
+            document.getElementById('musicProgress').style.display = 'none';
+            document.getElementById('musicLoading').style.display = 'none';
+            document.getElementById('resultsContent').style.display = 'none';
+            document.getElementById('musicError').style.display = 'none';
+            document.getElementById('lyricsResult').style.display = 'none';
+            document.getElementById('styleResult').style.display = 'none';
+            document.getElementById('musicPreviewContainer').style.display = 'none';
+            document.getElementById('saveMusicBtn').style.display = 'none';
+            
+            // Reset results
+            generatedLyrics = '';
+            generatedStyle = '';
+            uploadedMusicUrl = null;
+            uploadedMusicFile = null;
+            currentGenerationType = null;
+            
+            // Reset upload section
+            resetMusicUploadSection();
+            
+            modal.style.display = 'block';
+            
+            // Add hover effects to buttons
+            const buttons = document.querySelectorAll('#choiceSection button');
+            buttons.forEach(btn => {
+                btn.addEventListener('mouseenter', () => {
+                    btn.style.transform = 'translateY(-4px)';
+                    btn.style.boxShadow = '0 10px 30px rgba(0,0,0,0.2)';
+                });
+                btn.addEventListener('mouseleave', () => {
+                    btn.style.transform = 'translateY(0)';
+                    btn.style.boxShadow = '0 6px 20px rgba(0,0,0,0.15)';
+                });
+            });
+        }
+        
+        function closeMusicModal() {
+            document.getElementById('musicModal').style.display = 'none';
+            currentMusicGallery = null;
+            generatedLyrics = '';
+            generatedStyle = '';
+            uploadedMusicUrl = null;
+            uploadedMusicFile = null;
+            currentGenerationType = null;
+        }
+        
+        function editPromptsBeforeGenerate() {
+            document.getElementById('choiceSection').style.display = 'none';
+            
+            // Create prompt editor interface
+            const promptEditorSection = document.getElementById('promptEditorSection');
+            promptEditorSection.innerHTML = `
+                <div style="margin-bottom: 20px;">
+                    <h3>Edit Prompts Before Generating</h3>
+                    <p style="color: #7f8c8d; margin-bottom: 20px;">Edit both lyrics and style prompts before generation</p>
+                </div>
+                
+                <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                    <button id="lyricsTab" class="prompt-tab active" style="
+                        background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+                        color: white;
+                        border: none;
+                        padding: 12px 24px;
+                        border-radius: 8px;
+                        cursor: pointer;
+                        font-weight: 600;
+                        flex: 1;
+                    ">Lyrics Prompt</button>
+                    <button id="styleTab" class="prompt-tab" style="
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        color: white;
+                        border: none;
+                        padding: 12px 24px;
+                        border-radius: 8px;
+                        cursor: pointer;
+                        font-weight: 600;
+                        flex: 1;
+                    ">Style Prompt</button>
+                </div>
+                
+                <div id="lyricsPromptEditor" style="display: block;">
+                    <h4>🎶 Lyrics Generation Prompt</h4>
+                    <div class="prompt-editor">
+                        <textarea id="lyricsPromptTextarea" placeholder="Edit lyrics prompt..." style="width: 100%; min-height: 200px; padding: 15px; border: 2px solid #ddd; border-radius: 8px; font-family: 'Courier New', monospace; font-size: 14px; line-height: 1.5; resize: vertical;"></textarea>
+                    </div>
+                </div>
+                
+                <div id="stylePromptEditor" style="display: none;">
+                    <h4>🎨 Style Generation Prompt</h4>
+                    <div class="prompt-editor">
+                        <textarea id="stylePromptTextarea" placeholder="Edit style prompt..." style="width: 100%; min-height: 200px; padding: 15px; border: 2px solid #ddd; border-radius: 8px; font-family: 'Courier New', monospace; font-size: 14px; line-height: 1.5; resize: vertical;"></textarea>
+                    </div>
+                </div>
+                
+                <div class="prompt-actions" style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="button" class="prompt-btn cancel" onclick="cancelPromptEditing()">
+                        ✕ Cancel
+                    </button>
+                    <button type="button" class="prompt-btn save" onclick="saveBothPromptsAndGenerate()">
+                        💾 Save Both & Generate
+                    </button>
+                </div>
+            `;
+            
+            promptEditorSection.style.display = 'block';
+            
+            // Load current prompts with gallery data
+            document.getElementById('lyricsPromptTextarea').value = currentPrompts.lyrics
+                .replace(/{galleryName}/g, currentMusicGallery.name || '')
+                .replace(/{description}/g, currentMusicGallery.description || '')
+                .replace(/{tags}/g, currentMusicGallery.tags || '')
+                .replace(/{type}/g, currentMusicGallery.type1 || 'Product');
+            
+            document.getElementById('stylePromptTextarea').value = currentPrompts.style
+                .replace(/{galleryName}/g, currentMusicGallery.name || '')
+                .replace(/{description}/g, currentMusicGallery.description || '')
+                .replace(/{tags}/g, currentMusicGallery.tags || '')
+                .replace(/{type}/g, currentMusicGallery.type1 || 'Product');
+            
+            // Tab switching
+            document.getElementById('lyricsTab').addEventListener('click', () => {
+                document.getElementById('lyricsTab').classList.add('active');
+                document.getElementById('styleTab').classList.remove('active');
+                document.getElementById('lyricsPromptEditor').style.display = 'block';
+                document.getElementById('stylePromptEditor').style.display = 'none';
+            });
+            
+            document.getElementById('styleTab').addEventListener('click', () => {
+                document.getElementById('styleTab').classList.add('active');
+                document.getElementById('lyricsTab').classList.remove('active');
+                document.getElementById('stylePromptEditor').style.display = 'block';
+                document.getElementById('lyricsPromptEditor').style.display = 'none';
+            });
+        }
+        
+        function cancelPromptEditing() {
+            document.getElementById('promptEditorSection').style.display = 'none';
+            document.getElementById('choiceSection').style.display = 'block';
+        }
+        
+        function saveBothPromptsAndGenerate() {
+            const lyricsPrompt = document.getElementById('lyricsPromptTextarea').value.trim();
+            const stylePrompt = document.getElementById('stylePromptTextarea').value.trim();
+            
+            if (!lyricsPrompt || !stylePrompt) {
+                showMessage('❌ Both prompts are required', 'error');
+                return;
+            }
+            
+            // Save prompts (remove the current gallery-specific replacements)
+            currentPrompts.lyrics = lyricsPrompt
+                .replace(currentMusicGallery.name || '', '{galleryName}')
+                .replace(currentMusicGallery.description || '', '{description}')
+                .replace(currentMusicGallery.tags || '', '{tags}')
+                .replace(currentMusicGallery.type1 || 'Product', '{type}');
+            
+            currentPrompts.style = stylePrompt
+                .replace(currentMusicGallery.name || '', '{galleryName}')
+                .replace(currentMusicGallery.description || '', '{description}')
+                .replace(currentMusicGallery.tags || '', '{tags}')
+                .replace(currentMusicGallery.type1 || 'Product', '{type}');
+            
+            savePrompts();
+            
+            // Start generation of both
+            generateBothLyricsAndStyle();
+        }
+        
+        function generateImmediately() {
+            document.getElementById('choiceSection').style.display = 'none';
+            generateBothLyricsAndStyle();
+        }
+        
+        async function generateBothLyricsAndStyle() {
+            if (!currentMusicGallery) return;
+            
+            // Show loading and progress
+            document.getElementById('musicLoading').style.display = 'block';
+            document.getElementById('musicProgress').style.display = 'block';
+            document.getElementById('promptEditorSection').style.display = 'none';
+            document.getElementById('choiceSection').style.display = 'none';
+            document.getElementById('musicError').style.display = 'none';
+            document.getElementById('resultsContent').style.display = 'none';
+            
+            updateMusicProgress(0);
+            setMusicTask('Starting generation...', 'Preparing to generate lyrics and style');
+            
+            try {
+                // Prepare prompts with gallery data
+                const lyricsPrompt = currentPrompts.lyrics
+                    .replace(/{galleryName}/g, currentMusicGallery.name || '')
+                    .replace(/{description}/g, currentMusicGallery.description || '')
+                    .replace(/{tags}/g, currentMusicGallery.tags || '')
+                    .replace(/{type}/g, currentMusicGallery.type1 || 'Product');
+                
+                const stylePrompt = currentPrompts.style
+                    .replace(/{galleryName}/g, currentMusicGallery.name || '')
+                    .replace(/{description}/g, currentMusicGallery.description || '')
+                    .replace(/{tags}/g, currentMusicGallery.tags || '')
+                    .replace(/{type}/g, currentMusicGallery.type1 || 'Product');
+                
+                // Start both requests in parallel
+                setMusicTask('Generating lyrics...', 'Creating lyrics based on gallery name');
+                updateMusicProgress(25);
+                
+                const lyricsPromise = fetch('/api/ai/generate-gallery-lyrics', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        galleryName: currentMusicGallery.name,
+                        description: currentMusicGallery.description || '',
+                        tags: currentMusicGallery.tags || '',
+                        type: currentMusicGallery.type1 || 'Product',
+                        prompt: lyricsPrompt
+                    })
+                }).then(async response => {
+                    const result = await response.json();
+                    if (result.success && result.lyrics) {
+                        generatedLyrics = result.lyrics;
+                        updateMusicProgress(75);
+                        return result;
+                    } else {
+                        throw new Error(result.error || 'Failed to generate lyrics');
+                    }
+                });
+                
+                setMusicTask('Generating style...', 'Creating music style based on gallery name');
+                updateMusicProgress(50);
+                
+                const stylePromise = fetch('/api/ai/generate-gallery-style', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        galleryName: currentMusicGallery.name,
+                        description: currentMusicGallery.description || '',
+                        tags: currentMusicGallery.tags || '',
+                        type: currentMusicGallery.type1 || 'Product',
+                        prompt: stylePrompt
+                    })
+                }).then(async response => {
+                    const result = await response.json();
+                    if (result.success && result.style) {
+                        generatedStyle = result.style;
+                        updateMusicProgress(90);
+                        return result;
+                    } else {
+                        throw new Error(result.error || 'Failed to generate style');
+                    }
+                });
+                
+                // Wait for both to complete
+                await Promise.all([lyricsPromise, stylePromise]);
+                
+                updateMusicProgress(100);
+                
+                // Show results
+                showGenerationResults();
+                
+            } catch (error) {
+                console.error('Generation error:', error);
+                showMusicError(error.message);
+            }
+        }
+        
+        function showGenerationResults() {
+            document.getElementById('musicLoading').style.display = 'none';
+            document.getElementById('resultsContent').style.display = 'block';
+            
+            // Show both results
+            document.getElementById('lyricsResult').style.display = 'block';
+            document.getElementById('styleResult').style.display = 'block';
+            document.getElementById('generatedLyrics').textContent = generatedLyrics;
+            document.getElementById('generatedStyle').textContent = generatedStyle;
+            
+            // Setup drag and drop for music files
+            setupMusicDragAndDrop();
+        }
+        
+        function updateMusicProgress(percentage) {
+            document.getElementById('musicProgressBar').style.width = percentage + '%';
+            
+            // Update step indicators
+            const steps = ['step1', 'step2'];
+            steps.forEach((stepId, index) => {
+                const step = document.getElementById(stepId);
+                step.className = 'ai-step';
+                if (percentage >= (index + 1) * 50) {
+                    step.classList.add('completed');
+                } else if (percentage >= index * 50) {
+                    step.classList.add('active');
+                }
+            });
+        }
+        
+        function setMusicTask(task, details) {
+            document.getElementById('musicCurrentTask').textContent = task;
+            document.getElementById('musicTaskDetails').textContent = details;
+        }
+        
+        function showMusicError(message) {
+            document.getElementById('musicLoading').style.display = 'none';
+            document.getElementById('musicError').style.display = 'block';
+            document.getElementById('musicErrorMessage').textContent = message;
+        }
+        
+        function retryGeneration() {
+            document.getElementById('musicError').style.display = 'none';
+            generateBothLyricsAndStyle();
+        }
+        
+        // Copy to clipboard
+        function copyToClipboard(elementId) {
+            const element = document.getElementById(elementId);
+            const text = element.textContent;
+            
+            navigator.clipboard.writeText(text).then(() => {
+                showMessage('✅ Copied to clipboard!', 'success');
+            }).catch(err => {
+                showMessage('❌ Failed to copy', 'error');
+            });
+        }
+        
+        // Setup drag and drop for music files
+        function setupMusicDragAndDrop() {
+            const uploadContainer = document.getElementById('musicUploadContainer');
+            const fileInput = document.getElementById('musicFileInput');
+            
+            // Prevent default drag behaviors
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                uploadContainer.addEventListener(eventName, preventDefaults, false);
+                document.body.addEventListener(eventName, preventDefaults, false);
+            });
+            
+            // Highlight drop zone
+            ['dragenter', 'dragover'].forEach(eventName => {
+                uploadContainer.addEventListener(eventName, highlight, false);
+            });
+            
+            ['dragleave', 'drop'].forEach(eventName => {
+                uploadContainer.addEventListener(eventName, unhighlight, false);
+            });
+            
+            // Handle dropped files
+            uploadContainer.addEventListener('drop', handleMusicDrop, false);
+            
+            // Handle file input change
+            fileInput.addEventListener('change', handleMusicFileSelect, false);
+            
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            
+            function highlight() {
+                uploadContainer.classList.add('dragover');
+            }
+            
+            function unhighlight() {
+                uploadContainer.classList.remove('dragover');
+            }
+            
+            function handleMusicDrop(e) {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                handleMusicFiles(files);
+            }
+            
+            function handleMusicFileSelect(e) {
+                const files = e.target.files;
+                handleMusicFiles(files);
+            }
+        }
+        
+        function handleMusicFiles(files) {
+            if (files.length === 0) return;
+            
+            const file = files[0];
+            
+            // Validate file type
+            const validTypes = ['audio/mpeg', 'audio/wav', 'audio/x-wav', 'audio/mp4', 'audio/x-m4a'];
+            const validExtensions = ['.mp3', '.wav', '.m4a'];
+            const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+            
+            if (!validTypes.includes(file.type) && !validExtensions.includes(fileExtension)) {
+                showMessage('❌ Please select a valid audio file (MP3, WAV, M4A)', 'error');
+                return;
+            }
+            
+            // Validate file size (10MB max)
+            if (file.size > 10 * 1024 * 1024) {
+                showMessage('❌ Audio file size must be less than 10MB', 'error');
+                return;
+            }
+            
+            uploadedMusicFile = file;
+            
+            // Show preview
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const preview = document.getElementById('uploadedMusicPreview');
+                preview.src = e.target.result;
+                document.getElementById('musicPreviewContainer').style.display = 'block';
+                document.getElementById('saveMusicBtn').style.display = 'block';
+                
+                // Show upload status
+                const statusDiv = document.getElementById('uploadStatus');
+                statusDiv.className = 'upload-status success';
+                statusDiv.textContent = '✅ Music file ready to save';
+            };
+            reader.readAsDataURL(file);
+            
+            // Upload the file
+            uploadMusicFile(file);
+        }
+        
+        async function uploadMusicFile(file) {
+            try {
+                const statusDiv = document.getElementById('uploadStatus');
+                statusDiv.className = 'upload-status processing';
+                statusDiv.textContent = '🔄 Uploading music file...';
+                
+                const formData = new FormData();
+                formData.append('image', file);
+                
+                const response = await fetch('https://api.zulushop.in/api/v1/user/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const responseText = await response.text();
+                
+                if (response.status >= 200 && response.status < 300) {
+                    let jsonRes;
+                    try {
+                        jsonRes = JSON.parse(responseText);
+                    } catch (e) {
+                        throw new Error('Invalid response from server');
+                    }
+                    
+                    // Extract URL from response
+                    let url;
+                    
+                    if (jsonRes.url && typeof jsonRes.url === 'string') {
+                        url = jsonRes.url;
+                    } else if (jsonRes.image_url && typeof jsonRes.image_url === 'string') {
+                        url = jsonRes.image_url;
+                    } else if (jsonRes.data) {
+                        if (typeof jsonRes.data === 'string') {
+                            url = jsonRes.data;
+                        } else if (typeof jsonRes.data === 'object') {
+                            if (jsonRes.data.url && typeof jsonRes.data.url === 'string') {
+                                url = jsonRes.data.url;
+                            } else if (jsonRes.data.image_url && typeof jsonRes.data.image_url === 'string') {
+                                url = jsonRes.data.image_url;
+                            }
+                        }
+                    }
+                    
+                    if (url) {
+                        uploadedMusicUrl = url;
+                        
+                        statusDiv.className = 'upload-status success';
+                        statusDiv.textContent = '✅ Music uploaded successfully!';
+                        
+                        showMessage('✅ Music uploaded successfully!', 'success');
+                        return url;
+                    } else {
+                        throw new Error('No URL in response');
+                    }
+                } else {
+                    throw new Error(`Upload failed: ${response.status}`);
+                }
+            } catch (error) {
+                console.error('Music upload failed:', error);
+                
+                const statusDiv = document.getElementById('uploadStatus');
+                statusDiv.className = 'upload-status error';
+                statusDiv.textContent = `❌ Upload failed: ${error.message}`;
+                
+                showMessage(`❌ Music upload failed: ${error.message}`, 'error');
+                throw error;
+            }
+        }
+        
+        function resetMusicUploadSection() {
+            uploadedMusicUrl = null;
+            uploadedMusicFile = null;
+            document.getElementById('musicPreviewContainer').style.display = 'none';
+            document.getElementById('saveMusicBtn').style.display = 'none';
+            document.getElementById('musicFileInput').value = '';
+            const statusDiv = document.getElementById('uploadStatus');
+            statusDiv.className = 'upload-status';
+            statusDiv.textContent = '';
+        }
+        
+// Save music URL to gallery's description field - REPLACE DESCRIPTION
+async function saveMusicToGallery() {
+    if (!currentMusicGallery || !uploadedMusicUrl) {
+        showMessage('❌ Please upload a music file first', 'error');
+        return;
+    }
+    
+    try {
+        showMessage('🔄 Saving music to gallery...', 'info');
+        
+        // REPLACE the entire description with just the music link
+        const newDescription = uploadedMusicUrl;
+        
+        const updateData = {
+            description: newDescription
+        };
+        
+        const response = await fetch(`/api/galleries/${currentMusicGallery.id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(updateData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // Update the gallery in allGalleries array
+            const galleryIndex = allGalleries.findIndex(g => g.id == currentMusicGallery.id);
+            if (galleryIndex !== -1) {
+                allGalleries[galleryIndex].description = newDescription;
+                allGalleries[galleryIndex].hasMusic = true;
+                allGalleries[galleryIndex].musicLinks = [uploadedMusicUrl];
+            }
+            
+            showMessage('✅ Music link saved! Description replaced with music link.', 'success');
+            
+            // Close modal immediately
+            closeMusicModal();
+            // Refresh display
+            filterGalleries();
+        } else {
+            throw new Error(result.error || 'Failed to save music');
+        }
+    } catch (error) {
+        console.error('Error saving music:', error);
+        showMessage(`❌ Error: ${error.message}`, 'error');
+    }
+}
+
+// Show message
+        function showMessage(text, type = 'success') {
+            const messageDiv = document.getElementById('message');
+            messageDiv.textContent = text;
+            
+            const colors = {
+                success: { bg: '#d4edda', text: '#155724' },
+                error: { bg: '#f8d7da', text: '#721c24' },
+                info: { bg: '#d1ecf1', text: '#0c5460' }
+            };
+            
+            const color = colors[type] || colors.success;
+            messageDiv.style.background = color.bg;
+            messageDiv.style.color = color.text;
+            messageDiv.style.display = 'block';
+            
+            setTimeout(() => {
+                messageDiv.style.display = 'none';
+            }, 3000);
+        }
+        
+        // Close modals when clicking outside
+        window.onclick = function(event) {
+            const imageModal = document.getElementById('imageUploadModal');
+            const editModal = document.getElementById('editGalleryModal');
+            const musicModal = document.getElementById('musicModal');
+            
+            if (event.target === imageModal) {
+                closeImageModal();
+            }
+            if (event.target === editModal) {
+                closeEditGalleryModal();
+            }
+            if (event.target === musicModal) {
+                closeMusicModal();
+            }
+        };
+        
+        // Close modals with Escape key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeImageModal();
+                closeEditGalleryModal();
+                closeMusicModal();
+            }
+        });
+    </script>
+</body>
+</html>

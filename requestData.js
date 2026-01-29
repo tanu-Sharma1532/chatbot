@@ -7,7 +7,7 @@ const dbConfig = {
   password: process.env.DB_PASSWORD || '',
   database: process.env.DB_DATABASE || 'u130660877_zulu',
   waitForConnections: false,
-  connectionLimit: 3,
+  connectionLimit: 5,
   queueLimit: 0
 };
 
@@ -299,17 +299,7 @@ function executeUpdate(table, id, updateData) {
       }
     }
     
-    // Build SET clause - only update provided fields
-    const setClause = updateKeys
-      .map(key => `\`${key}\` = ?`)
-      .join(', ');
-    
-    const values = updateKeys.map(key => updateData[key]);
-    values.push(id);
-    
-    const query = `UPDATE \`${tableName}\` SET ${setClause} WHERE id = ?`;
-    
-    console.log(`📝 Updating ${tableName} #${id}:`, updateData);
+    console.log(`📝 Starting update for ${tableName} #${id}:`, updateData);
     lastQueryTime = Date.now();
     
     pool.getConnection((err, connection) => {
@@ -319,29 +309,227 @@ function executeUpdate(table, id, updateData) {
         return;
       }
       
-      connection.query(query, values, (error, results) => {
+      // Check if this is a products update with price fields
+      const hasPriceUpdate = tableName === 'products' && 
+        (updateData.retail_simple_price !== undefined || 
+         updateData.retail_simple_special_price !== undefined);
+      
+      if (hasPriceUpdate) {
+        // Use transaction to update both products and product_variants
+        connection.beginTransaction(async (transactionErr) => {
+          if (transactionErr) {
+            connection.release();
+            reject(transactionErr);
+            return;
+          }
+          
+          try {
+            // First, update the products table
+            const productSetClause = updateKeys
+              .map(key => `\`${key}\` = ?`)
+              .join(', ');
+            
+            const productValues = updateKeys.map(key => updateData[key]);
+            productValues.push(id);
+            
+            const productQuery = `UPDATE \`${tableName}\` SET ${productSetClause} WHERE id = ?`;
+            
+            console.log(`📦 Updating products table:`, productQuery.substring(0, 200));
+            
+            await new Promise((resolveQuery, rejectQuery) => {
+              connection.query(productQuery, productValues, (queryError, productResults) => {
+                if (queryError) {
+                  rejectQuery(queryError);
+                  return;
+                }
+                console.log(`✅ Products update successful, affected rows: ${productResults.affectedRows}`);
+                resolveQuery(productResults);
+              });
+            });
+            
+            // Now, update ALL product_variants for this product_id
+            if (updateData.retail_simple_price !== undefined || updateData.retail_simple_special_price !== undefined) {
+              const variantUpdateFields = [];
+              const variantUpdateValues = [];
+              
+              if (updateData.retail_simple_price !== undefined) {
+                variantUpdateFields.push('price = ?');
+                variantUpdateValues.push(updateData.retail_simple_price);
+              }
+              
+              if (updateData.retail_simple_special_price !== undefined) {
+                variantUpdateFields.push('special_price = ?');
+                variantUpdateValues.push(updateData.retail_simple_special_price);
+              }
+              
+              // Add the product_id as the last parameter
+              variantUpdateValues.push(id);
+              
+              const variantsQuery = `UPDATE u130660877_zulu.product_variants 
+                                    SET ${variantUpdateFields.join(', ')} 
+                                    WHERE product_id = ?`;
+              
+
+              console.log(`📦 Updating ALL product variants for product_id=${id}`);
+              console.log(`Query: ${variantsQuery}`);
+              
+              await new Promise((resolveVariants, rejectVariants) => {
+                connection.query(variantsQuery, variantUpdateValues, (variantsError, variantsResults) => {
+                  if (variantsError) {
+                    rejectVariants(variantsError);
+                    return;
+                  }
+                  console.log(`✅ Product variants update successful, affected rows: ${variantsResults.affectedRows}`);
+                  console.log(`📊 Updated ${variantsResults.affectedRows} variant records for product ${id}`);
+                  resolveVariants(variantsResults);
+                });
+              });
+              
+              // Optional: Fetch and log the affected variants for debugging
+              const countQuery = `SELECT COUNT(*) as variant_count FROM u130660877_zulu.product_variants WHERE product_id = ?`;
+              await new Promise((resolveCount, rejectCount) => {
+                connection.query(countQuery, [id], (countError, countResults) => {
+                  if (countError) {
+                    rejectCount(countError);
+                    return;
+                  }
+                  console.log(`🔍 Product ${id} has ${countResults[0].variant_count} total variant(s)`);
+                  resolveCount(countResults);
+                });
+              });
+            }
+            
+            // Commit the transaction
+            connection.commit((commitErr) => {
+              if (commitErr) {
+                connection.rollback(() => {
+                  connection.release();
+                  reject(commitErr);
+                });
+                return;
+              }
+              
+              console.log('✅ Transaction committed successfully');
+              
+              // Clear cache for this table after update
+              clearCache(table);
+              
+              connection.release();
+              
+              setTimeout(() => {
+                console.log('🔌 Closing connection after update');
+                closeConnectionPool();
+              }, 3000);
+              
+              resolve({ 
+                success: true, 
+                message: 'Product and all its variants updated successfully',
+                productId: id
+              });
+            });
+            
+          } catch (error) {
+            // Rollback on error
+            connection.rollback(() => {
+              connection.release();
+              reject(error);
+            });
+          }
+        });
+      } else {
+        // Original logic for non-products table or non-price updates
+        const setClause = updateKeys
+          .map(key => `\`${key}\` = ?`)
+          .join(', ');
+        
+        const values = updateKeys.map(key => updateData[key]);
+        values.push(id);
+        
+        const query = `UPDATE \`${tableName}\` SET ${setClause} WHERE id = ?`;
+        
+        console.log(`📝 Executing single update: ${query.substring(0, 200)}...`);
+        
+        connection.query(query, values, (error, results) => {
+          connection.release();
+          
+          if (error) {
+            console.error('❌ Update execution error:', error);
+            reject(error);
+            return;
+          }
+          
+          console.log(`✅ Update successful, affected rows: ${results.affectedRows}`);
+          
+          // Clear cache for this table after update
+          clearCache(table);
+          
+          setTimeout(() => {
+            console.log('🔌 Closing connection after update');
+            closeConnectionPool();
+          }, 3000);
+          
+          resolve(results);
+        });
+      }
+    });
+  });
+}
+
+// Helper function to check all variants for a product
+async function getProductVariants(productId) {
+  return new Promise((resolve, reject) => {
+    ensureConnection();
+    
+    if (!pool) {
+      reject(new Error('Database connection not available'));
+      return;
+    }
+    
+    const query = `
+      SELECT 
+        id, 
+        product_id, 
+        price, 
+        special_price,
+      FROM u130660877_zulu.product_variants 
+      WHERE product_id = ? 
+      ORDER BY id
+    `;
+    
+    pool.getConnection((err, connection) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      
+      connection.query(query, [productId], (error, results) => {
         connection.release();
         
         if (error) {
-          console.error('❌ Update execution error:', error);
           reject(error);
           return;
         }
         
-        console.log(`✅ Update successful, affected rows: ${results.affectedRows}`);
-        
-        // Clear cache for this table after update
-        clearCache(table);
-        
-        setTimeout(() => {
-          console.log('🔌 Closing connection after update');
-          closeConnectionPool();
-        }, 3000);
+        console.log(`📊 Found ${results.length} variants for product ${productId}:`);
+        results.forEach((variant, index) => {
+          console.log(`   Variant ${index + 1}: ID=${variant.id}, Price=${variant.price}, Special Price=${variant.special_price}`);
+        });
         
         resolve(results);
       });
     });
   });
+}
+
+// You can call this before updating to see what will be affected
+async function logProductVariantsBeforeUpdate(productId) {
+  try {
+    const variants = await getProductVariants(productId);
+    return variants;
+  } catch (error) {
+    console.error('Error fetching variants:', error);
+    return [];
+  }
 }
 
 // Get single record by ID - only returns allowed columns
